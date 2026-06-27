@@ -119,7 +119,7 @@ export default function EvidenceSubmissionPage({ params }: PageProps) {
   const textWordCount = mapDetail ? mapDetail.description.split(/\s+/).length + 200 : 300;
   
   // Initialize silent telemetry tracker
-  const { submitTelemetry } = useTelemetry(mapId, textWordCount);
+  const { getTelemetryData } = useTelemetry(mapId, textWordCount);
 
   if (loading) {
     return (
@@ -164,8 +164,8 @@ export default function EvidenceSubmissionPage({ params }: PageProps) {
     setQuarantineReason('');
 
     try {
-      // 1. Silent BehaviorGuard telemetry submission
-      const telemetryResult = await submitTelemetry();
+      // 1. Get silent BehaviorGuard telemetry snapshot
+      const telemetryResult = getTelemetryData();
       
       // 2. Prepare FormData for file upload
       const formData = new FormData();
@@ -175,11 +175,11 @@ export default function EvidenceSubmissionPage({ params }: PageProps) {
       // stringify the exact snapshot telemetry values that we want to pass along
       formData.append('telemetry', JSON.stringify({
         map_id: mapId,
-        time_on_page_seconds: telemetryResult?.time_on_page_seconds || 5,
-        max_scroll_percent: telemetryResult?.max_scroll_percent || 0,
+        time_on_page_seconds: telemetryResult.time_on_page_seconds || 5,
+        max_scroll_percent: telemetryResult.max_scroll_percent || 0,
         word_count: textWordCount,
-        click_count: telemetryResult?.click_count || 0,
-        tab_switches: telemetryResult?.tab_switches || 0,
+        click_count: telemetryResult.click_count || 0,
+        tab_switches: telemetryResult.tab_switches || 0,
         submitted_at: new Date().toISOString()
       }));
 
@@ -199,11 +199,15 @@ export default function EvidenceSubmissionPage({ params }: PageProps) {
         setResult('success');
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('File upload failed:', err);
-      setResult('error');
-      const errPayload = err as { response?: { data?: { detail?: string } } };
-      setErrorMsg(errPayload.response?.data?.detail || 'An unexpected error occurred during cryptographic submission.');
+      if (err.response?.status === 400 && err.response?.data?.rejection_reason) {
+        setResult('quarantined');
+        setQuarantineReason(err.response.data.rejection_reason);
+      } else {
+        setResult('error');
+        setErrorMsg(err.response?.data?.detail || 'An unexpected error occurred during cryptographic submission.');
+      }
     } finally {
       setUploading(false);
     }
@@ -358,7 +362,7 @@ export default function EvidenceSubmissionPage({ params }: PageProps) {
             <h3 className="font-bold text-red-800 text-base">Validation Check Failed</h3>
             <p className="text-xs text-slate-600 max-w-md mx-auto">
               Compliance verification error code <span className="font-mono font-bold bg-slate-100 px-1 py-0.5 rounded text-red-600">LFA-403</span>. 
-              {quarantineReason.includes('OCR verification failed') ? (
+              {quarantineReason.includes('OCR verification failed') || quarantineReason.includes('Validation Failed') ? (
                 <span> The submitted evidence did not contain the required information for this task.</span>
               ) : (
                 <span> The system detected anomalous metrics during upload validation.</span>
@@ -366,9 +370,9 @@ export default function EvidenceSubmissionPage({ params }: PageProps) {
             </p>
           </div>
 
-          {quarantineReason.includes('OCR verification failed') && (
+          {(quarantineReason.includes('OCR verification failed') || quarantineReason.includes('Validation Failed')) && (
              <div className="p-3 bg-red-100 text-red-800 border border-red-200 rounded font-mono text-[10px] text-left max-w-md mx-auto">
-               <strong>OCR Verification Log:</strong><br/>
+               <strong>AI Rejection Reason:</strong><br/>
                {quarantineReason}
              </div>
           )}

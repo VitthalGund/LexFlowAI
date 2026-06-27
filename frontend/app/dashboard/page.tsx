@@ -8,8 +8,12 @@ import {
   Clock, 
   RefreshCw, 
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Search,
+  CheckCircle,
+  Hash
 } from 'lucide-react';
+import { MAP } from '@/types/map';
 import Link from 'next/link';
 
 interface StatOverview {
@@ -41,17 +45,21 @@ interface StateHeatmapData {
 export default function DashboardPage() {
   const [stats, setStats] = useState<StatOverview | null>(null);
   const [heatmap, setHeatmap] = useState<StateHeatmapData | null>(null);
+  const [allMaps, setAllMaps] = useState<MAP[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedAuditMap, setSelectedAuditMap] = useState<MAP | null>(null);
 
   const fetchDashboardData = async () => {
     try {
-      const [overviewRes, heatmapRes] = await Promise.all([
+      const [overviewRes, heatmapRes, mapsRes] = await Promise.all([
         api.get('/api/v1/dashboard/overview'),
         api.get('/api/v1/dashboard/heatmap'),
+        api.get('/api/v1/maps')
       ]);
       setStats(overviewRes.data);
       setHeatmap(heatmapRes.data);
+      setAllMaps(mapsRes.data);
     } catch (err) {
       console.error('Failed to load dashboard statistics:', err);
     } finally {
@@ -354,6 +362,107 @@ export default function DashboardPage() {
         </div>
 
       </div>
+
+      {/* Active MAPs Audit Trail */}
+      <div className="bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden mt-8">
+        <div className="p-5 border-b border-neutral-200 bg-neutral-50 flex justify-between items-center">
+          <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <Search className="h-5 w-5 text-primary-500" />
+            <span>Active MAPs Audit Trail</span>
+          </h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-neutral-200 bg-slate-50">
+                <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">MAP ID</th>
+                <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Title</th>
+                <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Department</th>
+                <th className="p-4 font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="p-4 font-bold text-slate-500 uppercase tracking-wider text-right">Audit Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allMaps.map(map => (
+                <tr key={map.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="p-4 font-mono font-bold text-slate-600">{map.id}</td>
+                  <td className="p-4 font-semibold text-slate-800">{map.title}</td>
+                  <td className="p-4 text-slate-500">{map.department}</td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${map.status === 'VERIFIED' ? 'bg-success-100 text-success-700' : map.status === 'QUARANTINED' ? 'bg-red-100 text-red-700' : 'bg-warning-100 text-warning-700'}`}>
+                      {map.status}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right">
+                    {map.status === 'VERIFIED' && map.evidence_hash && (
+                      <button 
+                        onClick={() => setSelectedAuditMap(map)}
+                        className="text-primary-600 hover:text-primary-800 font-bold"
+                      >
+                        View Audit Trail
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {allMaps.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-slate-500">No active MAPs found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Audit Modal */}
+      {selectedAuditMap && (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl max-w-xl w-full overflow-hidden">
+            <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-success-500" />
+                Immutable Audit Record
+              </h3>
+              <button 
+                onClick={() => setSelectedAuditMap(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">MAP Title</span>
+                <span className="block font-semibold text-slate-800">{selectedAuditMap.title}</span>
+              </div>
+              
+              <div className="bg-slate-900 rounded p-4">
+                <div className="flex items-center gap-2 text-slate-400 mb-2 border-b border-slate-800 pb-2">
+                  <Hash className="h-4 w-4" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">SHA-256 WORM Vault Hash</span>
+                </div>
+                <div className="font-mono text-success-400 text-xs break-all select-all">
+                  {selectedAuditMap.evidence_hash}
+                </div>
+              </div>
+              
+              <p className="text-xs text-slate-500 italic">
+                This cryptographic signature ensures the uploaded evidence cannot be tampered with. It is locked in the append-only ledger.
+              </p>
+            </div>
+            <div className="p-4 border-t border-slate-200 bg-slate-50 text-right">
+              <button 
+                onClick={() => setSelectedAuditMap(null)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded"
+              >
+                Close Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

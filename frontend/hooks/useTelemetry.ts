@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
-import { api } from '@/lib/api';
+
 
 export function useTelemetry(mapId: string, wordCount: number = 800) {
   const startTime = useRef<number>(0);
@@ -58,9 +58,9 @@ export function useTelemetry(mapId: string, wordCount: number = 800) {
     };
   }, [mapId]);
 
-  const submitTelemetry = async () => {
+  const getTelemetryData = () => {
     const timeOnPageSeconds = (Date.now() - startTime.current) / 1000;
-    const telemetryPayload = {
+    return {
       map_id: mapId,
       time_on_page_seconds: parseFloat(timeOnPageSeconds.toFixed(2)),
       max_scroll_percent: maxScroll.current,
@@ -69,15 +69,7 @@ export function useTelemetry(mapId: string, wordCount: number = 800) {
       tab_switches: tabSwitches.current,
       submitted_at: new Date().toISOString()
     };
-
-    try {
-      const response = await api.post('/api/v1/telemetry/log', telemetryPayload);
-      return response.data;
-    } catch (error) {
-      console.error('Failed to log interaction telemetry:', error);
-      return null;
-    }
   };
 
-  return { submitTelemetry };
+  return { getTelemetryData };
 }

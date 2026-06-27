@@ -4,7 +4,7 @@ import { useEffect, useState, use } from "react";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { MAP } from "@/types/map";
-import { AlertTriangle, Terminal, Code, CheckSquare, Copy } from "lucide-react";
+import { AlertTriangle, Terminal, Code, CheckSquare, Copy, Download } from "lucide-react";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -44,6 +44,23 @@ export default function ITRemediationDetail({ params }: PageProps) {
       console.error(err);
     } finally {
       setApproving(false);
+    }
+  };
+
+  const handleDownloadPayload = async () => {
+    try {
+      const response = await api.get(`/api/v1/remediation/${id}/export`, {
+        responseType: 'blob', // Important for file download
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `payload_${id}.json`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      console.error('Failed to download secure payload', err);
     }
   };
 
@@ -89,6 +106,14 @@ export default function ITRemediationDetail({ params }: PageProps) {
             className="px-4 py-2 text-sm font-semibold border border-neutral-300 rounded hover:bg-neutral-50 text-neutral-700"
           >
             Back
+          </button>
+          
+          <button 
+            onClick={handleDownloadPayload}
+            className="px-4 py-2 text-sm font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded flex items-center justify-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Download Secure Air-Gapped Payload
           </button>
           {!isApproved ? (
             <button 
