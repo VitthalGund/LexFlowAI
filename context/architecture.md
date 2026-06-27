@@ -1,4 +1,16 @@
-# context/architecture.md
+# System Architecture & State Invariants
+
+## Component Mapping
+- **Frontend Core:** Next.js Server Components with interactive state components running client-side tracking hooks.
+- **Backend Service Frame:** FastAPI application engine running fully asynchronous handling routes.
+- **Orchestration Layer:** LangGraph running continuous state preservation mechanics over processing cycles.
+- **Database Architecture:** MongoDB instance configured with append-only validation schemas to protect record lines.
+
+## State Invariants
+1. **Verification Progression Rule:** A state record cannot move to `VERIFIED` or generate a cryptographic signature unless it successfully passes both contextual text validation and visual asset confirmation runs.
+2. **Isolation Invariant:** The schema engine cannot rewrite or delete an established evidence record block. Corrections or modifications generate an isolated, incremented ledger entry.
+
+
 ## LexFlow AI — System Architecture
 
 ---

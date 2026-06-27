@@ -1,8 +1,12 @@
-# context/project-overview.md
-## LexFlow AI — Product Definition, Goals, Features & Scope
+# Project Overview: LexFlow AI (Iteration 3)
 
-### Product Vision
-LexFlow AI is an autonomous, multi-agent compliance enforcement architecture built for Canara Bank's decentralized branch network. It converts RBI regulatory circulars into cryptographically-enforced, geographically-routed, evidence-validated Measurable Action Points (MAPs) — making compliance fraud technically impossible.
+## Core Objective
+An autonomous, zero-trust regulatory enforcement engine engineered to process unformatted regulatory documentation, distribute precise operational mandates via local administrative codes, and enforce execution parity using multimodal verification nodes and tamper-proof WORM storage parameters.
+
+## Scope & Core Modules
+1. **Structural PDF Ingestion Engine:** Utilizes precise coordinate layout parsing to read complex regulatory tables and policy guidelines directly without format conversion artifacting.
+2. **Cyclical Validation Graph:** LangGraph architecture running an adversarial cycle where evaluation nodes verify both raw text extraction data and visual compliance tokens (signatures/seals).
+3. **Air-Gapped Remediation Engine:** Compiles configuration directives into verified, cryptographically signed payload structures for processing within isolated private bank operating grids.
 
 ---
 

@@ -1,6 +1,7 @@
 import pytest
 from app.services.ocr_verification import extract_keywords_from_map, verify_evidence_content
 from app.models.ocr_models import EvidenceVerificationResult
+from unittest.mock import patch
 
 def test_keyword_extraction_from_map():
     map_doc = {
@@ -31,9 +32,10 @@ async def test_matching_evidence_passes(monkeypatch):
         "kpi": "Zero TLS endpoints"
     }
     
-    result = await verify_evidence_content(dummy_image, "evidence.png", map_doc)
-    assert result.ocr_verified is True
-    assert result.content_match_score > 0.0
+    with patch("app.services.ocr_verification.detect_visual_tokens", return_value={"official_seal_present": True, "handwritten_signature_present": True}):
+        result = await verify_evidence_content(dummy_image, "evidence.png", map_doc)
+        assert result.ocr_verified is True
+        assert result.content_match_score > 0.0
 
 @pytest.mark.asyncio
 async def test_irrelevant_evidence_fails(monkeypatch):
@@ -48,13 +50,15 @@ async def test_irrelevant_evidence_fails(monkeypatch):
         "kpi": "Zero TLS endpoints"
     }
     
-    result = await verify_evidence_content(dummy_image, "evidence.png", map_doc)
-    assert result.ocr_verified is False
-    assert result.content_match_score == 0.0
+    with patch("app.services.ocr_verification.detect_visual_tokens", return_value={"official_seal_present": True, "handwritten_signature_present": True}):
+        result = await verify_evidence_content(dummy_image, "evidence.png", map_doc)
+        assert result.ocr_verified is False
+        assert result.content_match_score == 0.0
 
 @pytest.mark.asyncio
 async def test_empty_file_fails():
     map_doc = {"title": "Test"}
     result = await verify_evidence_content(b"", "empty.png", map_doc)
     assert result.ocr_verified is False
-    assert result.rejection_reason == "File is empty"
+    assert result.rejection_reason == "File is empty or processing failed"
+

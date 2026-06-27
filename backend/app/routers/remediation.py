@@ -3,6 +3,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from bson import ObjectId
+from app.services.remediation_forge import compile_secure_payload
 
 router = APIRouter(prefix="/api/v1/remediation", tags=["IT Remediation"])
 
@@ -57,3 +58,33 @@ async def approve_remediation_payload(
     )
     
     return {"message": "Remediation payload approved"}
+
+@router.get("/{map_id}/export")
+async def export_secure_remediation_payload(
+    map_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        map_doc = await db.maps.find_one({"_id": map_id})
+        if not map_doc:
+            map_doc = await db.maps.find_one({"_id": ObjectId(map_id)})
+    except Exception:
+        raise HTTPException(status_code=404, detail="MAP not found")
+        
+    if not map_doc:
+        raise HTTPException(status_code=404, detail="MAP not found")
+        
+    payload = map_doc.get("remediation_payload")
+    if not payload:
+        raise HTTPException(status_code=404, detail="No remediation payload generated for this MAP")
+    
+    # Extract config_payload as directives
+    directives = payload.get("config_payload", {})
+    if not directives:
+        raise HTTPException(status_code=400, detail="Payload missing configuration directives")
+        
+    secure_package = await compile_secure_payload(directives)
+    
+    return secure_package
+

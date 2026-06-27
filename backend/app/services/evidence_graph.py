@@ -25,21 +25,28 @@ async def ocr_node(state: EvidenceValidationState) -> EvidenceValidationState:
         map_doc=state["map_doc"]
     )
     
-    # Generate AI-style rejection if failed
-    if not result.ocr_verified:
-        missing = [kw for kw in result.required_keywords if kw not in result.matched_keywords]
-        result.rejection_reason = f"The uploaded evidence does not contain required keywords: {', '.join(missing)}. Please upload the correct document."
-        
     return {
         **state,
         "ocr_result": result,
         "iteration_count": state["iteration_count"] + 1
     }
 
-def ocr_conditional_edge(state: EvidenceValidationState) -> Literal["behavioral_node", "verdict_node"]:
+def ocr_conditional_edge(state: EvidenceValidationState) -> Literal["behavioral_node", "await_user_evidence"]:
     if not state["ocr_result"].ocr_verified:
-        return "verdict_node"
+        return "await_user_evidence"
     return "behavioral_node"
+
+async def await_user_evidence(state: EvidenceValidationState) -> EvidenceValidationState:
+    # Routes back to the user ingestion phase by formulating a REJECTED response
+    reason = state["ocr_result"].rejection_reason
+    if not reason:
+        reason = "Validation Failed: Missing Branch Manager Signature or Bank Seal. Please re-sign and upload."
+        
+    return {
+        **state,
+        "verdict": "REJECTED",
+        "rejection_reason": reason
+    }
 
 async def behavioral_node(state: EvidenceValidationState) -> EvidenceValidationState:
     risk_score, flags = calculate_risk_score(state["telemetry"])
@@ -53,10 +60,7 @@ async def verdict_node(state: EvidenceValidationState) -> EvidenceValidationStat
     verdict = "ACCEPTED"
     reason = None
     
-    if not state.get("ocr_result") or not state["ocr_result"].ocr_verified:
-        verdict = "QUARANTINED"
-        reason = f"OCR verification failed: {state['ocr_result'].rejection_reason}"
-    elif state.get("risk_score", 0.0) >= QUARANTINE_THRESHOLD:
+    if state.get("risk_score", 0.0) >= QUARANTINE_THRESHOLD:
         verdict = "QUARANTINED"
         reason = build_quarantine_reason(state["risk_score"], state["risk_flags"])
         
@@ -71,14 +75,16 @@ def build_evidence_validation_graph():
     
     graph.add_node("ocr_node", ocr_node)
     graph.add_node("behavioral_node", behavioral_node)
+    graph.add_node("await_user_evidence", await_user_evidence)
     graph.add_node("verdict_node", verdict_node)
     
     graph.set_entry_point("ocr_node")
     graph.add_conditional_edges(
         "ocr_node",
         ocr_conditional_edge,
-        {"behavioral_node": "behavioral_node", "verdict_node": "verdict_node"}
+        {"behavioral_node": "behavioral_node", "await_user_evidence": "await_user_evidence"}
     )
+    graph.add_edge("await_user_evidence", END)
     graph.add_edge("behavioral_node", "verdict_node")
     graph.add_edge("verdict_node", END)
     
@@ -101,3 +107,4 @@ async def run_evidence_validation_graph(file_content: bytes, file_name: str, map
     
     result = await graph.ainvoke(initial_state)
     return result
+

@@ -3,6 +3,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timezone
 from app.core.config import settings
 from app.services.vault import process_evidence_upload
+from unittest.mock import patch
 
 @pytest.mark.asyncio
 async def test_evidence_vault_integration(monkeypatch):
@@ -10,7 +11,7 @@ async def test_evidence_vault_integration(monkeypatch):
     import pytesseract
     from PIL import Image
     monkeypatch.setattr(Image, "open", lambda fp: "dummy_image")
-    monkeypatch.setattr(pytesseract, "image_to_string", lambda img: "enable mfa tls")
+    monkeypatch.setattr(pytesseract, "image_to_string", lambda img: "enable mfa tls update test instruction details kpi")
     
     # Connect to the local MongoDB database but use a test collection
     client = AsyncIOMotorClient(settings.MONGODB_URI)
@@ -65,70 +66,71 @@ async def test_evidence_vault_integration(monkeypatch):
     
     file_content = b"Mock Screenshot Data"
     
-    entry = await process_evidence_upload(
-        db,
-        file_name="mfa_proof.png",
-        file_content=file_content,
-        map_id="MAP-INTEGRATION-001",
-        uploader=uploader,
-        telemetry=telemetry_legit
-    )
-    
-    # Assertions on vault entry
-    assert entry["vault_status"] == "ACCEPTED"
-    assert entry["file_name"] == "mfa_proof.png"
-    assert entry["sha256_hash"] is not None
-    assert len(entry["sha256_hash"]) == 64
-    
-    # Assert MAP status updated to VERIFIED in DB
-    updated_map = await db.maps.find_one({"_id": "MAP-INTEGRATION-001"})
-    assert updated_map["status"] == "VERIFIED"
-    assert updated_map["evidence_hash"] == entry["sha256_hash"]
-    
-    # 3. Quarantined Upload Scenario
-    mock_map_2 = {
-        "_id": "MAP-INTEGRATION-002",
-        "circular_id": "CIRCULAR-INTEGRATION",
-        "title": "Update TLS",
-        "description": "Test instruction details",
-        "kpi": "Test KPI",
-        "deadline_days": 30,
-        "department": "IT",
-        "evidence_type": "LOG_FILE",
-        "geographic_scope": "NATIONAL",
-        "target_lgd_codes": ["3202001"],
-        "status": "PENDING",
-        "behavioral_risk_score": 0.0,
-        "evidence_hash": None
-    }
-    await db.maps.insert_one(mock_map_2)
-    
-    telemetry_fraud = {
-        "time_on_page_seconds": 2.0,    # 2 seconds (High risk)
-        "max_scroll_percent": 2.0,      # No scroll (High risk)
-        "word_count": 800,
-        "tab_switches": 6,
-        "submitted_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    entry_quarantined = await process_evidence_upload(
-        db,
-        file_name="tls_proof.log",
-        file_content=b"Fraud Log Details",
-        map_id="MAP-INTEGRATION-002",
-        uploader=uploader,
-        telemetry=telemetry_fraud
-    )
-    
-    # Assertions on quarantined entry
-    assert entry_quarantined["vault_status"] == "QUARANTINED"
-    assert entry_quarantined["quarantine_reason"] is not None
-    
-    # Assert MAP status updated to QUARANTINED in DB
-    updated_map_2 = await db.maps.find_one({"_id": "MAP-INTEGRATION-002"})
-    assert updated_map_2["status"] == "QUARANTINED"
-    assert updated_map_2["evidence_hash"] is None
-    
+    with patch("app.services.ocr_verification.detect_visual_tokens", return_value={"official_seal_present": True, "handwritten_signature_present": True}):
+        entry = await process_evidence_upload(
+            db,
+            file_name="mfa_proof.png",
+            file_content=file_content,
+            map_id="MAP-INTEGRATION-001",
+            uploader=uploader,
+            telemetry=telemetry_legit
+        )
+        
+        # Assertions on vault entry
+        assert entry["vault_status"] == "ACCEPTED"
+        assert entry["file_name"] == "mfa_proof.png"
+        assert entry["sha256_hash"] is not None
+        assert len(entry["sha256_hash"]) == 64
+        
+        # Assert MAP status updated to VERIFIED in DB
+        updated_map = await db.maps.find_one({"_id": "MAP-INTEGRATION-001"})
+        assert updated_map["status"] == "VERIFIED"
+        assert updated_map["evidence_hash"] == entry["sha256_hash"]
+        
+        # 3. Quarantined Upload Scenario
+        mock_map_2 = {
+            "_id": "MAP-INTEGRATION-002",
+            "circular_id": "CIRCULAR-INTEGRATION",
+            "title": "Update TLS",
+            "description": "Test instruction details",
+            "kpi": "Test KPI",
+            "deadline_days": 30,
+            "department": "IT",
+            "evidence_type": "LOG_FILE",
+            "geographic_scope": "NATIONAL",
+            "target_lgd_codes": ["3202001"],
+            "status": "PENDING",
+            "behavioral_risk_score": 0.0,
+            "evidence_hash": None
+        }
+        await db.maps.insert_one(mock_map_2)
+        
+        telemetry_fraud = {
+            "time_on_page_seconds": 2.0,    # 2 seconds (High risk)
+            "max_scroll_percent": 2.0,      # No scroll (High risk)
+            "word_count": 800,
+            "tab_switches": 6,
+            "submitted_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        entry_quarantined = await process_evidence_upload(
+            db,
+            file_name="tls_proof.log",
+            file_content=b"Fraud Log Details",
+            map_id="MAP-INTEGRATION-002",
+            uploader=uploader,
+            telemetry=telemetry_fraud
+        )
+        
+        # Assertions on quarantined entry
+        assert entry_quarantined["vault_status"] == "QUARANTINED"
+        assert entry_quarantined["quarantine_reason"] is not None
+        
+        # Assert MAP status updated to QUARANTINED in DB
+        updated_map_2 = await db.maps.find_one({"_id": "MAP-INTEGRATION-002"})
+        assert updated_map_2["status"] == "QUARANTINED"
+        assert updated_map_2["evidence_hash"] is None
+        
     # Clean up test database collections
     await db.branches.drop()
     await db.maps.drop()

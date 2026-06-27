@@ -1,3 +1,8 @@
+import json
+import hmac
+import hashlib
+import os
+from typing import Dict, Any
 from app.models.remediation import RemediationPayload
 
 async def generate_remediation_payload(map_dict: dict) -> RemediationPayload:
@@ -150,3 +155,23 @@ echo 'Please implement manual script for this task.'
         risk_level="MEDIUM",
         status="PENDING_IT_APPROVAL"
     )
+
+async def compile_secure_payload(directives: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Takes a configuration directive, serializes it to JSON, computes an HMAC signature using
+    BANK_SECRET_KEY and SHA-256, and returns a verified runtime container block.
+    """
+    secret_key = os.environ.get("BANK_SECRET_KEY", "default-hackathon-secret-key-12345").encode('utf-8')
+    payload_str = json.dumps(directives, sort_keys=True)
+    payload_bytes = payload_str.encode('utf-8')
+    
+    # Compute HMAC signature using SHA-256
+    signature = hmac.new(secret_key, payload_bytes, hashlib.sha256).hexdigest()
+    
+    return {
+        "payload": directives,
+        "payload_bytes": payload_str,
+        "hmac_signature": signature,
+        "verification_hash": signature # Aliased for test compatibility if needed
+    }
+
