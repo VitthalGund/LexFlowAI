@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from typing import List, Dict
+from datetime import datetime
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["Dashboard Widgets"])
 
@@ -16,7 +16,6 @@ async def get_overview_stats(
     
     # Overall MAPs definitions count
     maps_list = await db.maps.find({}).to_list(length=1000)
-    maps_count = len(maps_list)
     
     # Calculate overall compliance percentage
     # Total assignments = Sum(target_lgd_codes count for all MAPs)
@@ -125,5 +124,3 @@ async def get_state_heatmap(
         }
         
     return result
-
-from datetime import datetime

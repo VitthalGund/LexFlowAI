@@ -4,10 +4,11 @@ from typing import TypedDict, List, Dict, Any, Literal
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import ValidationError
 from app.core.config import settings
-from app.models.map import MAPSchema, MAPStatus, GeoScope, Department, EvidenceType
+from app.models.map import MAPSchema
 from app.services.lgd import get_branches_for_scope
 from app.services.translation import translate_text
 from app.services.remediation_forge import generate_remediation_payload
+from langgraph.graph import StateGraph, END
 
 # Define LangGraph Compliance State
 class ComplianceState(TypedDict):
@@ -231,8 +232,6 @@ async def translation_node_action(state: ComplianceState) -> ComplianceState:
     }
 
 # --- Compiler Builder ---
-
-from langgraph.graph import StateGraph, END
 
 def build_compliance_graph(db: AsyncIOMotorDatabase):
     graph = StateGraph(ComplianceState)

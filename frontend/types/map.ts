@@ -3,6 +3,15 @@ export type EvidenceType = 'POLICY_DOC' | 'LOG_FILE' | 'SCREENSHOT' | 'REPORT' |
 export type GeoScope = 'NATIONAL' | 'STATE' | 'DISTRICT' | 'BRANCH';
 export type MAPStatus = 'PENDING' | 'IN_PROGRESS' | 'SUBMITTED' | 'VERIFIED' | 'QUARANTINED' | 'OVERDUE';
 
+export interface RemediationPayload {
+  api_payload: Record<string, unknown>;
+  shell_script: string;
+  rpa_instructions: string[];
+  target_system: string;
+  risk_level: string;
+  requires_approval: boolean;
+}
+
 export interface MAP {
   id: string;
   circular_id: string;
@@ -20,4 +29,7 @@ export interface MAP {
   behavioral_risk_score: number;
   evidence_hash?: string;
   localized_description?: string;
+  remediation_payload?: RemediationPayload;
+  remediation_approved?: boolean;
+  remediation_approved_by?: string;
 }

@@ -1,7 +1,6 @@
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timedelta, timezone
-import os
 import hashlib
 from app.core.config import settings
 from app.core.security import get_password_hash as hash_password

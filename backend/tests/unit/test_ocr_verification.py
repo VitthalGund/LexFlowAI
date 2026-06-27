@@ -19,11 +19,9 @@ def test_keyword_extraction_from_map():
 @pytest.mark.asyncio
 async def test_matching_evidence_passes(monkeypatch):
     # Mock OCR extraction
-    async def mock_extract(*args, **kwargs):
-        pass
-    
-    # We will just patch pytesseract to return a known string
+    from PIL import Image
     import pytesseract
+    monkeypatch.setattr(Image, "open", lambda fp: "dummy_image")
     monkeypatch.setattr(pytesseract, "image_to_string", lambda img: "We have updated all endpoints to TLS 1.3 and removed TLS 1.0.")
     
     # Dummy file content
@@ -39,7 +37,9 @@ async def test_matching_evidence_passes(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_irrelevant_evidence_fails(monkeypatch):
+    from PIL import Image
     import pytesseract
+    monkeypatch.setattr(Image, "open", lambda fp: "dummy_image")
     monkeypatch.setattr(pytesseract, "image_to_string", lambda img: "This is a picture of a cat. Meow.")
     
     dummy_image = b"fakeimage"

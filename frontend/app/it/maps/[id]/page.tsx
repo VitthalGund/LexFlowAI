@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import api from "@/lib/api";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, use } from "react";
+import { api } from "@/lib/api";
+import { useRouter } from "next/navigation";
 import { MAP } from "@/types/map";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { AlertTriangle, Terminal, Code, CheckSquare, Copy } from "lucide-react";
 
-export default function ITRemediationDetail() {
-  const { id } = useParams();
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default function ITRemediationDetail({ params }: PageProps) {
+  const resolvedParams = use(params);
+  const { id } = resolvedParams;
   const router = useRouter();
   const [map, setMap] = useState<MAP | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,7 +69,7 @@ export default function ITRemediationDetail() {
     );
   }
 
-  const isApproved = (map as any).remediation_approved;
+  const isApproved = map.remediation_approved;
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6">
@@ -81,13 +84,27 @@ export default function ITRemediationDetail() {
           <p className="text-neutral-600 mt-2">Target System: <span className="font-semibold">{payload.target_system}</span></p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="outline" onClick={() => router.push("/it/maps")}>Back</Button>
+          <button 
+            onClick={() => router.push("/it/maps")}
+            className="px-4 py-2 text-sm font-semibold border border-neutral-300 rounded hover:bg-neutral-50 text-neutral-700"
+          >
+            Back
+          </button>
           {!isApproved ? (
-            <Button onClick={handleApprove} isLoading={approving}>Approve Payload</Button>
+            <button 
+              onClick={handleApprove} 
+              disabled={approving}
+              className="px-4 py-2 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded disabled:opacity-50 flex items-center justify-center"
+            >
+              {approving ? "Approving..." : "Approve Payload"}
+            </button>
           ) : (
-            <Button variant="outline" disabled className="bg-success-50 text-success-700 border-success-200">
+            <button 
+              disabled 
+              className="px-4 py-2 text-sm font-semibold bg-success-50 text-success-700 border border-success-200 rounded cursor-not-allowed"
+            >
               Approved
-            </Button>
+            </button>
           )}
         </div>
       </div>
@@ -156,7 +173,7 @@ export default function ITRemediationDetail() {
 
           {activeTab === 'rpa' && (
             <ol className="list-decimal list-inside space-y-2 font-sans text-sm text-neutral-200">
-              {payload.rpa_instructions.map((step: str, i: number) => (
+              {payload.rpa_instructions.map((step: string, i: number) => (
                 <li key={i}>{step}</li>
               ))}
             </ol>

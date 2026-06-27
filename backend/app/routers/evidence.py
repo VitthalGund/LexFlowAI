@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, require_roles
+from app.core.dependencies import get_current_user
 from app.services.vault import process_evidence_upload, verify_evidence_hash
 import json
 from typing import List
+from datetime import datetime
 
 router = APIRouter(prefix="/api/v1/evidence", tags=["Evidence Vault"])
 
@@ -68,5 +69,3 @@ async def get_ledger(
         if isinstance(e["uploaded_at"], datetime):
             e["uploaded_at"] = e["uploaded_at"].isoformat()
     return entries
-
-from datetime import datetime

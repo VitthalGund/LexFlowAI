@@ -1,4 +1,3 @@
-from typing import Dict
 
 MOCK_TRANSLATIONS = {
     "Update TLS to v1.3": {

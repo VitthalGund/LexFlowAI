@@ -5,8 +5,13 @@ from app.core.config import settings
 from app.services.vault import process_evidence_upload
 
 @pytest.mark.asyncio
-async def test_evidence_vault_integration():
+async def test_evidence_vault_integration(monkeypatch):
     """Verify that uploading evidence writes to DB and updates corresponding MAP status."""
+    import pytesseract
+    from PIL import Image
+    monkeypatch.setattr(Image, "open", lambda fp: "dummy_image")
+    monkeypatch.setattr(pytesseract, "image_to_string", lambda img: "enable mfa tls")
+    
     # Connect to the local MongoDB database but use a test collection
     client = AsyncIOMotorClient(settings.MONGODB_URI)
     db = client["lexflow_test_db"]

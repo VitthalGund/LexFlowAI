@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
 from app.models.telemetry import TelemetryLogCreate
-from bson import ObjectId
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/api/v1/telemetry", tags=["Behavior Telemetry"])
@@ -32,12 +31,12 @@ async def get_map_telemetry_history(
     current_user: dict = Depends(get_current_user)
 ):
     logs = await db.telemetry_logs.find({"map_id": map_id}).to_list(length=100)
-    for l in logs:
-        l["id"] = str(l["_id"])
-        del l["_id"]
-        if isinstance(l["logged_at"], datetime):
-            l["logged_at"] = l["logged_at"].isoformat()
-        if isinstance(l["submitted_at"], datetime):
-            l["submitted_at"] = l["submitted_at"].isoformat()
+    for log in logs:
+        log["id"] = str(log["_id"])
+        del log["_id"]
+        if isinstance(log["logged_at"], datetime):
+            log["logged_at"] = log["logged_at"].isoformat()
+        if isinstance(log["submitted_at"], datetime):
+            log["submitted_at"] = log["submitted_at"].isoformat()
             
     return {"map_id": map_id, "logs": logs}

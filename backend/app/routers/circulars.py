@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
-from app.models.circular import CircularCreate, CircularResponse
+from app.models.circular import CircularCreate
 from app.services.lexgraph import run_compliance_pipeline
-from datetime import datetime, timezone
 from bson import ObjectId
 from typing import List
 

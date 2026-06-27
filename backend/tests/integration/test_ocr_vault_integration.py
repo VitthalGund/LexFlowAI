@@ -6,6 +6,8 @@ import json
 @pytest.mark.asyncio
 async def test_ocr_vault_integration_pass(monkeypatch):
     import pytesseract
+    from PIL import Image
+    monkeypatch.setattr(Image, "open", lambda fp: "dummy_image")
     monkeypatch.setattr(pytesseract, "image_to_string", lambda img: "TLS 1.3 endpoints verified")
     
     # Mock DB
@@ -44,6 +46,8 @@ async def test_ocr_vault_integration_pass(monkeypatch):
 @pytest.mark.asyncio
 async def test_ocr_vault_integration_ocr_fail(monkeypatch):
     import pytesseract
+    from PIL import Image
+    monkeypatch.setattr(Image, "open", lambda fp: "dummy_image")
     monkeypatch.setattr(pytesseract, "image_to_string", lambda img: "Random picture of a cat")
     
     class MockDB:
@@ -81,6 +85,8 @@ async def test_ocr_vault_integration_ocr_fail(monkeypatch):
 @pytest.mark.asyncio
 async def test_ocr_vault_integration_behavioral_fail(monkeypatch):
     import pytesseract
+    from PIL import Image
+    monkeypatch.setattr(Image, "open", lambda fp: "dummy_image")
     monkeypatch.setattr(pytesseract, "image_to_string", lambda img: "TLS 1.3 endpoints verified")
     
     class MockDB:

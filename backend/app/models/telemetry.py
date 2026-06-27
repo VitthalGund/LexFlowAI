@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
 
 class TelemetryLogBase(BaseModel):
     map_id: str = Field(..., description="Ref to MAP being read")
