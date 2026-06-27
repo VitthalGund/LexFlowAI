@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import connect_to_mongo, close_mongo_connection
-from app.routers import circulars, maps, evidence, telemetry, branches, dashboard, auth
+from app.routers import circulars, maps, evidence, telemetry, branches, dashboard, auth, remediation
 
 app = FastAPI(
     title="LexFlow AI API",
@@ -27,6 +27,7 @@ app.include_router(evidence.router)
 app.include_router(telemetry.router)
 app.include_router(branches.router)
 app.include_router(dashboard.router)
+app.include_router(remediation.router)
 
 @app.on_event("startup")
 async def startup_event():

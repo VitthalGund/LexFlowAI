@@ -53,6 +53,7 @@ class MAPDocument(MAPBase):
     status: MAPStatus = Field(MAPStatus.PENDING)
     behavioral_risk_score: float = Field(0.0, description="Silent fraud risk score (0 to 1)")
     evidence_hash: Optional[str] = Field(None, description="SHA-256 hash of verified submission")
+    remediation_payload: Optional[Dict] = Field(None, description="Generated remediation instructions (for IT)")
 
 class MAPResponse(MAPDocument):
     id: str = Field(..., description="Stringified MongoDB ObjectId")

@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.models.map import MAPSchema, MAPStatus, GeoScope, Department, EvidenceType
 from app.services.lgd import get_branches_for_scope
 from app.services.translation import translate_text
+from app.services.remediation_forge import generate_remediation_payload
 
 # Define LangGraph Compliance State
 class ComplianceState(TypedDict):
@@ -15,6 +16,7 @@ class ComplianceState(TypedDict):
     raw_maps: List[Dict[str, Any]]
     validated_maps: List[Dict[str, Any]]
     validation_errors: List[str]
+    remediation_payloads: List[Dict[str, Any]]
     iteration_count: int
     status: str
 
@@ -196,6 +198,18 @@ async def routing_node_creator(db: AsyncIOMotorDatabase):
         }
     return route_node
 
+async def remediation_node_action(state: ComplianceState) -> ComplianceState:
+    payloads = []
+    for map_dict in state["validated_maps"]:
+        if map_dict.get("department") == "IT":
+            payload = await generate_remediation_payload(map_dict)
+            payloads.append(payload.model_dump())
+    return {
+        **state,
+        "remediation_payloads": payloads,
+        "status": "remediated"
+    }
+
 async def translation_node_action(state: ComplianceState) -> ComplianceState:
     translated_maps = []
     for map_dict in state["validated_maps"]:
@@ -241,7 +255,9 @@ def build_compliance_graph(db: AsyncIOMotorDatabase):
         should_loop_or_proceed,
         {"extract": "extract", "route": "route"}
     )
-    graph.add_edge("route", "translate")
+    graph.add_node("remediate", remediation_node_action)
+    graph.add_edge("route", "remediate")
+    graph.add_edge("remediate", "translate")
     graph.add_edge("translate", END)
     
     return graph.compile()
@@ -254,6 +270,7 @@ async def run_compliance_pipeline(db: AsyncIOMotorDatabase, circular_id: str, ci
         "raw_maps": [],
         "validated_maps": [],
         "validation_errors": [],
+        "remediation_payloads": [],
         "iteration_count": 0,
         "status": "extracting"
     }
@@ -285,9 +302,28 @@ async def run_compliance_pipeline(db: AsyncIOMotorDatabase, circular_id: str, ci
             "translations": map_data.get("translations", {}),
             "status": "PENDING",
             "behavioral_risk_score": 0.0,
-            "evidence_hash": None
+            "evidence_hash": None,
+            "remediation_payload": None
         }
         
+        # Attach remediation payload if IT
+        if map_data["department"] == "IT":
+            # Match payload based on index or title (simplified for hackathon: grab first IT payload not used, or match by title)
+            for p in result.get("remediation_payloads", []):
+                # Simple matching by title or just use the ordered list
+                # For safety, let's just use the fact that they are generated in order of IT maps
+                pass
+                
+        # Better approach: map them properly
+        if map_data["department"] == "IT" and result.get("remediation_payloads"):
+            # We generated payloads for IT maps in order
+            it_maps = [m for m in result["validated_maps"] if m.get("department") == "IT"]
+            try:
+                it_index = it_maps.index(map_data)
+                map_doc["remediation_payload"] = result["remediation_payloads"][it_index]
+            except (ValueError, IndexError):
+                pass
+
         # Save to DB
         await maps_collection.insert_one(map_doc)
         map_doc["id"] = map_id

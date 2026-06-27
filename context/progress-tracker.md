@@ -35,6 +35,10 @@ All frontend pages, hooks, styling variables, and test suites are complete. The 
 - [x] Next.js BehaviorGuard quarantined review queue (`/risk-review`)
 - [x] Pytest suite containing 11 unit and integration test cases
 - [x] Fully resolved all React 19 / Next.js ESLint compilation errors & warnings (0 errors, 0 warnings)
+- [x] Implemented OCR Computer Vision Gate (`pytesseract` + `PyMuPDF`) for evidence content verification
+- [x] Implemented RemediationForge for IT tasks (API payloads + Shell scripts + RPA instructions)
+- [x] Built IT Remediation UI portal (`/it/maps` and `/it/maps/[id]`)
+- [x] Synthetic circulars for IT and Physical Security testing
 
 ---
 
@@ -77,6 +81,9 @@ All frontend pages, hooks, styling variables, and test suites are complete. The 
 | Risk review queue UI | ✅ Complete | Quarantined telemetry analyzer |
 | India compliance heatmap | ✅ Complete | Localized SVG map integration |
 | Demo data seed | ✅ Complete | demo_data.py seeded successfully |
+| OCR Content Verification | ✅ Complete | OCR gate in vault to prevent forged evidence |
+| RemediationForge Engine | ✅ Complete | Generates payloads/scripts for IT MAPs |
+| IT Remediation UI | ✅ Complete | Centralized portal for admin payload approval |
 | End-to-end demo run | ✅ Complete | Verified all scenarios successfully |
 
 **Legend:** ⬜ Not started | 🔄 In progress | ✅ Complete | ❌ Blocked | 🟡 Mocked
@@ -94,6 +101,8 @@ All frontend pages, hooks, styling variables, and test suites are complete. The 
 | Local Ollama for LLM | Safe sovereign AI operations; gaganyatri/sarvam-2b model | Ingress Setup |
 | Next.js 16 App Router | Modern, TypeScript-native, fast | Planning |
 | Risk threshold 0.6 | Balances false positives vs. fraud detection; configurable | Planning |
+| OCR Gate before Hashing | Must verify content before immutably hashing to prevent forged evidence | Hardening |
+| Remediation Scripts Human-in-loop | Production IT systems require review; display-only generation for demo | Hardening |
 
 ---
 

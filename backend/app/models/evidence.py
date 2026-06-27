@@ -14,6 +14,7 @@ class EvidenceVaultEntryBase(BaseModel):
     uploaded_at: datetime = Field(..., description="Server timestamp of upload")
     behavioral_risk_score: float = Field(0.0, description="Associated telemetry risk score")
     telemetry_snapshot: Dict = Field(default_factory=dict, description="Frozen telemetry snapshot at upload time")
+    ocr_verification: Dict = Field(default_factory=dict, description="OCR content verification results")
     vault_status: Literal["ACCEPTED", "QUARANTINED"] = Field("ACCEPTED")
     quarantine_reason: Optional[str] = Field(None, description="Detailed reasoning if quarantined")
     amendment_of: Optional[str] = Field(None, description="Ref to prior vault entry if this corrects a quarantine")

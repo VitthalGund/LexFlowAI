@@ -52,6 +52,7 @@ export default function EvidenceSubmissionPage({ params }: PageProps) {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<'idle' | 'success' | 'quarantined' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [quarantineReason, setQuarantineReason] = useState('');
   const [receiptHash, setReceiptHash] = useState('');
 
   // Localized submission page text
@@ -160,6 +161,7 @@ export default function EvidenceSubmissionPage({ params }: PageProps) {
     setUploading(true);
     setResult('idle');
     setErrorMsg('');
+    setQuarantineReason('');
 
     try {
       // 1. Silent BehaviorGuard telemetry submission
@@ -190,8 +192,8 @@ export default function EvidenceSubmissionPage({ params }: PageProps) {
       const vaultEntry = response.data.vault_entry;
       
       if (vaultEntry.vault_status === 'QUARANTINED') {
-        // Silent quarantine trigger: show generic error to force them to read the policy document
         setResult('quarantined');
+        setQuarantineReason(vaultEntry.quarantine_reason || '');
       } else {
         setReceiptHash(vaultEntry.sha256_hash);
         setResult('success');
@@ -356,9 +358,20 @@ export default function EvidenceSubmissionPage({ params }: PageProps) {
             <h3 className="font-bold text-red-800 text-base">Validation Check Failed</h3>
             <p className="text-xs text-slate-600 max-w-md mx-auto">
               Compliance verification error code <span className="font-mono font-bold bg-slate-100 px-1 py-0.5 rounded text-red-600">LFA-403</span>. 
-              The system detected anomalous metrics during upload validation.
+              {quarantineReason.includes('OCR verification failed') ? (
+                <span> The submitted evidence did not contain the required information for this task.</span>
+              ) : (
+                <span> The system detected anomalous metrics during upload validation.</span>
+              )}
             </p>
           </div>
+
+          {quarantineReason.includes('OCR verification failed') && (
+             <div className="p-3 bg-red-100 text-red-800 border border-red-200 rounded font-mono text-[10px] text-left max-w-md mx-auto">
+               <strong>OCR Verification Log:</strong><br/>
+               {quarantineReason}
+             </div>
+          )}
 
           <div className="p-4 bg-white border border-red-100 rounded text-xs text-left text-slate-600 leading-relaxed space-y-2 max-w-md mx-auto">
             <h4 className="font-bold text-red-700">Remediation Action Required:</h4>

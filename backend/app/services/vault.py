@@ -2,6 +2,7 @@ import hashlib
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.services.behavior import calculate_risk_score, build_quarantine_reason
+from app.services.ocr_verification import verify_evidence_content
 from bson import ObjectId
 
 QUARANTINE_THRESHOLD = 0.60
@@ -18,21 +19,36 @@ async def process_evidence_upload(
     sha256_hash = hashlib.sha256(file_content).hexdigest()
     server_timestamp = datetime.now(timezone.utc)
     
-    # Calculate risk
-    risk_score, flags = calculate_risk_score(telemetry)
-    
-    vault_status = "QUARANTINED" if risk_score >= QUARANTINE_THRESHOLD else "ACCEPTED"
-    quarantine_reason = build_quarantine_reason(risk_score, flags) if vault_status == "QUARANTINED" else None
-    
-    # Get circular_id
+    # Get circular_id and map_doc
     map_doc = await db.maps.find_one({"_id": map_id})
     if not map_doc:
         try:
             map_doc = await db.maps.find_one({"_id": ObjectId(map_id)})
         except Exception:
             map_doc = None
-    
+            
     circular_id = map_doc.get("circular_id") if map_doc else "UNKNOWN_CIRCULAR"
+    
+    # === OCR VERIFICATION GATE ===
+    ocr_result = await verify_evidence_content(
+        file_content=file_content,
+        file_name=file_name,
+        map_doc=map_doc if map_doc else {}
+    )
+    
+    # Calculate risk
+    risk_score, flags = calculate_risk_score(telemetry)
+    
+    vault_status = "ACCEPTED"
+    quarantine_reason = None
+    
+    if not ocr_result.ocr_verified:
+        vault_status = "QUARANTINED"
+        quarantine_reason = f"OCR verification failed: {ocr_result.rejection_reason}"
+    elif risk_score >= QUARANTINE_THRESHOLD:
+        vault_status = "QUARANTINED"
+        quarantine_reason = build_quarantine_reason(risk_score, flags)
+    
     
     entry = {
         "map_id": map_id,
@@ -46,6 +62,7 @@ async def process_evidence_upload(
         "uploaded_at": server_timestamp,
         "behavioral_risk_score": risk_score,
         "telemetry_snapshot": telemetry,
+        "ocr_verification": ocr_result.model_dump(),
         "vault_status": vault_status,
         "quarantine_reason": quarantine_reason,
         "amendment_of": None
