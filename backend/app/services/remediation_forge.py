@@ -15,6 +15,13 @@ async def generate_remediation_payload(map_dict: dict) -> RemediationPayload:
                     "cipher_suites": ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"]
                 }
             },
+            config_payload={
+                "target_system": "Windows Server IIS",
+                "parameter": "tls_version",
+                "old_val": "TLS1.2",
+                "new_val": "TLS1.3",
+                "change_type": "CONFIGURATION"
+            },
             shell_script="""# REVIEW REQUIRED — DO NOT AUTO-EXECUTE
 # Enable TLS 1.3 on Windows Server IIS
 New-Item 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\Protocols\\TLS 1.3\\Server' -Force
@@ -31,7 +38,8 @@ Restart-Service W3SVC
                 "Restart IIS Service"
             ],
             target_system="Windows Server IIS (Web Portal)",
-            risk_level="HIGH"
+            risk_level="HIGH",
+            status="PENDING_IT_APPROVAL"
         )
 
     # 2. MFA Template
@@ -45,6 +53,13 @@ Restart-Service W3SVC
                     "enforce": True,
                     "provider": "AuthenticatorApp"
                 }
+            },
+            config_payload={
+                "target_system": "Azure Active Directory / IAM",
+                "parameter": "mfa_enforcement",
+                "old_val": False,
+                "new_val": True,
+                "change_type": "POLICY"
             },
             shell_script="""# REVIEW REQUIRED — DO NOT AUTO-EXECUTE
 # Require MFA for Admin Accounts via Azure AD PowerShell
@@ -63,7 +78,8 @@ New-AzureADMSConditionalAccessPolicy -DisplayName "Enforce MFA for Admins" -Stat
                 "Set Enable policy to 'On' and Save"
             ],
             target_system="Azure Active Directory / IAM",
-            risk_level="HIGH"
+            risk_level="HIGH",
+            status="PENDING_IT_APPROVAL"
         )
         
     # 3. Password Policy Template
@@ -79,6 +95,13 @@ New-AzureADMSConditionalAccessPolicy -DisplayName "Enforce MFA for Admins" -Stat
                     "max_age_days": 90
                 }
             },
+            config_payload={
+                "target_system": "Core Banking",
+                "parameter": "pwd_rotation_days",
+                "old_val": 90,
+                "new_val": 60,
+                "change_type": "CONFIGURATION"
+            },
             shell_script="""# REVIEW REQUIRED — DO NOT AUTO-EXECUTE
 # Update Active Directory Default Domain Password Policy
 Set-ADDefaultDomainPasswordPolicy -Identity "corp.bank.local" -ComplexityEnabled $true -MaxPasswordAge "90.00:00:00" -MinPasswordLength 14 -PasswordHistoryCount 24
@@ -93,7 +116,8 @@ Set-ADDefaultDomainPasswordPolicy -Identity "corp.bank.local" -ComplexityEnabled
                 "Set 'Password must meet complexity requirements' to Enabled"
             ],
             target_system="Active Directory",
-            risk_level="MEDIUM"
+            risk_level="MEDIUM",
+            status="PENDING_IT_APPROVAL"
         )
 
     # Default Template
@@ -106,6 +130,13 @@ Set-ADDefaultDomainPasswordPolicy -Identity "corp.bank.local" -ComplexityEnabled
                 "ref": map_dict.get("id")
             }
         },
+        config_payload={
+            "target_system": "Unknown",
+            "parameter": "unknown",
+            "old_val": None,
+            "new_val": None,
+            "change_type": "UNKNOWN"
+        },
         shell_script=f"""# REVIEW REQUIRED — DO NOT AUTO-EXECUTE
 # Auto-generated script for: {map_dict.get('title')}
 echo 'Please implement manual script for this task.'
@@ -116,5 +147,6 @@ echo 'Please implement manual script for this task.'
             "Apply configuration changes as per MAP description"
         ],
         target_system="Unknown Generic System",
-        risk_level="MEDIUM"
+        risk_level="MEDIUM",
+        status="PENDING_IT_APPROVAL"
     )

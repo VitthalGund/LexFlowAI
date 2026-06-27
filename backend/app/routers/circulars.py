@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
@@ -6,8 +6,91 @@ from app.models.circular import CircularCreate
 from app.services.lexgraph import run_compliance_pipeline
 from bson import ObjectId
 from typing import List
+from app.services.pdf_parser import parse_pdf_content
 
 router = APIRouter(prefix="/api/v1/circulars", tags=["Circulars"])
+
+@router.post("/ingest-pdf", status_code=status.HTTP_201_CREATED)
+async def ingest_circular_pdf(
+    circular_number: str = Form(...),
+    title: str = Form(...),
+    issued_date: str = Form(...),
+    file: UploadFile = File(...),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(require_roles(["COMPLIANCE_OFFICER"]))
+):
+    from datetime import datetime
+    import dateutil.parser
+    
+    # Parse date
+    try:
+        parsed_date = dateutil.parser.isoparse(issued_date)
+    except Exception:
+        parsed_date = datetime.now()
+        
+    # Check if circular number already exists
+    existing = await db.circulars.find_one({"circular_number": circular_number})
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Circular {circular_number} already exists"
+        )
+        
+    content = await file.read()
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Empty PDF file uploaded"
+        )
+        
+    # Extract text from PDF
+    extracted_text = await parse_pdf_content(content)
+    
+    circular_doc = {
+        "circular_number": circular_number,
+        "title": title,
+        "issuing_authority": "Reserve Bank of India",
+        "issued_date": parsed_date,
+        "raw_text": extracted_text,
+        "status": "PROCESSING",
+        "maps_count": 0
+    }
+    
+    result = await db.circulars.insert_one(circular_doc)
+    circular_id = str(result.inserted_id)
+    
+    try:
+        # Run compliance state machine pipeline
+        maps_generated = await run_compliance_pipeline(db, circular_id, extracted_text)
+        
+        # Update circular status
+        await db.circulars.update_one(
+            {"_id": ObjectId(circular_id)},
+            {"$set": {
+                "status": "PROCESSED",
+                "maps_count": len(maps_generated)
+            }}
+        )
+        
+        circular_doc["id"] = circular_id
+        circular_doc["status"] = "PROCESSED"
+        circular_doc["maps_count"] = len(maps_generated)
+        
+        return {
+            "message": "Circular PDF processed successfully",
+            "circular_id": circular_id,
+            "maps_extracted": maps_generated
+        }
+        
+    except Exception as e:
+        await db.circulars.update_one(
+            {"_id": ObjectId(circular_id)},
+            {"$set": {"status": "FAILED"}}
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"LangGraph pipeline failed: {str(e)}"
+        )
 
 @router.post("/ingest", status_code=status.HTTP_201_CREATED)
 async def ingest_circular(

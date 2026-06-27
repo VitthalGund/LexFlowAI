@@ -20,3 +20,4 @@ bcrypt==3.2.2
 python-dateutil==2.9.0.post0
 pytesseract==0.3.13
 Pillow==10.3.0
+pdfplumber>=0.10.0

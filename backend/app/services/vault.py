@@ -1,8 +1,6 @@
 import hashlib
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from app.services.behavior import calculate_risk_score, build_quarantine_reason
-from app.services.ocr_verification import verify_evidence_content
 from bson import ObjectId
 
 QUARANTINE_THRESHOLD = 0.60
@@ -29,26 +27,20 @@ async def process_evidence_upload(
             
     circular_id = map_doc.get("circular_id") if map_doc else "UNKNOWN_CIRCULAR"
     
-    # === OCR VERIFICATION GATE ===
-    ocr_result = await verify_evidence_content(
+    # === EVIDENCE VALIDATION GRAPH ===
+    from app.services.evidence_graph import run_evidence_validation_graph
+    
+    validation_state = await run_evidence_validation_graph(
         file_content=file_content,
         file_name=file_name,
-        map_doc=map_doc if map_doc else {}
+        map_doc=map_doc if map_doc else {},
+        telemetry=telemetry
     )
     
-    # Calculate risk
-    risk_score, flags = calculate_risk_score(telemetry)
-    
-    vault_status = "ACCEPTED"
-    quarantine_reason = None
-    
-    if not ocr_result.ocr_verified:
-        vault_status = "QUARANTINED"
-        quarantine_reason = f"OCR verification failed: {ocr_result.rejection_reason}"
-    elif risk_score >= QUARANTINE_THRESHOLD:
-        vault_status = "QUARANTINED"
-        quarantine_reason = build_quarantine_reason(risk_score, flags)
-    
+    ocr_result = validation_state["ocr_result"]
+    risk_score = validation_state["risk_score"]
+    vault_status = validation_state["verdict"]
+    quarantine_reason = validation_state["rejection_reason"]
     
     entry = {
         "map_id": map_id,

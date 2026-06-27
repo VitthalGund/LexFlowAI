@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Optional
 
 class CircularBase(BaseModel):
     circular_number: str = Field(..., description="RBI circular reference number")
@@ -14,7 +15,9 @@ class CircularCreate(BaseModel):
     circular_number: str
     title: str
     issued_date: datetime
-    raw_text: str
+    raw_text: str = Field("", description="Raw text, can be empty if pdf_file is provided")
+    pdf_file: Optional[str] = Field(None, description="Base64 encoded PDF file")
+
 
 class CircularResponse(CircularBase):
     id: str = Field(..., description="Stringified MongoDB ObjectId")

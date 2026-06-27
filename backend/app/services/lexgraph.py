@@ -299,7 +299,7 @@ async def run_compliance_pipeline(db: AsyncIOMotorDatabase, circular_id: str, ci
             "geographic_scope": map_data["geographic_scope"],
             "target_lgd_codes": map_data.get("target_lgd_codes", []),
             "translations": map_data.get("translations", {}),
-            "status": "PENDING",
+            "status": "PENDING_IT_APPROVAL" if map_data["department"] == "IT" else "PENDING",
             "behavioral_risk_score": 0.0,
             "evidence_hash": None,
             "remediation_payload": None

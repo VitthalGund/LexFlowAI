@@ -30,11 +30,11 @@ Canara Bank operates 3,000+ branches across India. When RBI issues a circular:
 
 ### Core Features (MVP)
 
-#### 1. LexGraph — Cyclical MAP Extraction Engine
+#### 1. LexGraph — Cyclical MAP Extraction & Validation Engine
 - Input: RBI circular PDF or text
-- LangGraph state machine with Extraction Agent + Validation Agent loop
+- LangGraph state machine with Extraction Agent, OCR Validation Agent, and Remediation loops
 - Output: Structured JSON MAPs with KPI, deadline, department, evidence type
-- Validation: Pydantic schema enforcement — incomplete MAPs loop back
+- Validation: OCR verification via graph conditional edges (OCR failure triggers recursion)
 - Model: Sarvam-105B (primary) / OpenAI GPT-4o (fallback)
 
 #### 2. TrustVault — Cryptographic Evidence Lock
