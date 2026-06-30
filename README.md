@@ -70,44 +70,177 @@ LexFlow AI transforms RBI regulatory circulars from retroactive paper audit trai
 
 ---
 
-## 🛠️ Local Installation & Setup
+## 🛠️ Detailed Installation & Setup Guide
 
-Ensure you have **Python 3.10+**, **Node.js 18+**, and **MongoDB** running locally.
+This guide details two ways to run the LexFlow AI platform: **Option 1: Manual Setup (Local)** and **Option 2: Docker Compose Setup (One-Click)**.
 
-### 1. Ollama Config
-Install Ollama and pull the 2B sovereign LLM:
-```bash
-ollama pull gaganyatri/sarvam-2b-v0.5:latest
+### 📋 System Prerequisites
+Ensure you have the following installed on your machine:
+* **Node.js**: `v18.0.0` or higher (v20+ recommended)
+* **Python**: `3.10.x` or `3.11.x`
+* **MongoDB**: A running local MongoDB Community Server (port `27017`) or access to a MongoDB Atlas cluster.
+* **Ollama**: Required for running the sovereign local 2B LLM.
+
+---
+
+### ⚙️ Environment Configuration
+
+Before running, configure the environment variables for both the backend and frontend.
+
+#### 1. Backend Config
+Create or inspect the [backend/.env](file:///c:/Users/vitth/OneDrive/Documents/SEM%20VI/SuRaksha/LexFlowAI/backend/.env) file:
+```env
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=lexflow_hackathon
+JWT_SECRET_KEY=lexflow-super-secret-key-for-hackathon-min-32-chars
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=1440
+USE_LOCAL_LLM=true
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=gaganyatri/sarvam-2b-v0.5:latest
+USE_OPENAI_FALLBACK=false
+APP_ENV=development
+SEED_DEMO_DATA=true
 ```
 
-### 2. Backend Setup
-```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-python -m app.utils.demo_data    # Seed database
-uvicorn main:app --reload
-```
-
-### 3. Frontend Setup
-```bash
-cd frontend
-npm install --legacy-peer-deps
-npm run dev
+#### 2. Frontend Config
+Create or inspect the [frontend/.env.local](file:///c:/Users/vitth/OneDrive/Documents/SEM%20VI/SuRaksha/LexFlowAI/frontend/.env.local) file:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ---
 
-## 🧪 Verification & Test Results
-To run the automated test suite verifying cryptographics, LGD routing, and BehaviorGuard quarantine rules:
-```bash
-cd backend
-$env:PYTHONPATH="."
-venv\Scripts\python -m pytest
-```
-Output:
-```
+### 🚀 Option 1: Manual Local Setup (Step-by-Step)
+
+#### Step 1. Configure and Run Ollama
+1. Download and install [Ollama](https://ollama.com).
+2. Start the Ollama application or service.
+3. In your terminal, run the following command to download the 2B sovereign banking model:
+   ```bash
+   ollama pull gaganyatri/sarvam-2b-v0.5:latest
+   ```
+
+#### Step 2. Run MongoDB Locally
+Ensure your local MongoDB instance is started and running:
+* **Windows (Services)**: Start `MongoDB Database Server` via the Services app (`services.msc`) or run:
+  ```powershell
+  net start MongoDB
+  ```
+* **macOS (Homebrew)**: Run:
+  ```bash
+  brew services start mongodb-community
+  ```
+* **Linux (systemd)**: Run:
+  ```bash
+  sudo systemctl start mongod
+  ```
+
+#### Step 3. Set Up and Launch Backend (FastAPI)
+1. Open a terminal and navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Create a Python virtual environment:
+   ```bash
+   python -m venv venv
+   ```
+3. Activate the virtual environment:
+   * **Windows (PowerShell)**:
+     ```powershell
+     .\venv\Scripts\Activate.ps1
+     ```
+   * **Windows (Command Prompt)**:
+     ```cmd
+     .\venv\Scripts\activate.bat
+     ```
+   * **macOS / Linux (Bash/Zsh)**:
+     ```bash
+     source venv/bin/activate
+     ```
+4. Install all python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+5. Seed the database with demo users, branches, and sample circular status scenarios:
+   ```bash
+   python -m app.utils.demo_data
+   ```
+6. Start the FastAPI development server:
+   ```bash
+   uvicorn main:app --reload --port 8000
+   ```
+   The backend API will now be running at `http://localhost:8000`.
+
+#### Step 4. Set Up and Launch Frontend (Next.js)
+1. Open a new terminal session and navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install the frontend npm packages:
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+3. Launch the Next.js development server:
+   ```bash
+   npm run dev
+   ```
+   Open your browser and navigate to `http://localhost:3000` to interact with the application.
+
+---
+
+### 🐳 Option 2: Docker Compose Setup (One-Click)
+
+If you have Docker and Docker Compose installed, you can spin up the database, backend, and frontend containers automatically.
+
+> [!IMPORTANT]
+> Since Ollama runs on your host machine to utilize GPU hardware acceleration, make sure **Ollama is started on your host machine** and model `gaganyatri/sarvam-2b-v0.5:latest` has been pulled before running docker-compose.
+
+1. Start the Docker Desktop app or engine.
+2. In the project root directory, run:
+   ```bash
+   docker compose up --build
+   ```
+3. This orchestrates:
+   * **MongoDB container** mapping database storage to port `27017`
+   * **FastAPI Backend container** running on port `8000` (auto-configured to connect to host Ollama using `host.docker.internal`)
+   * **Next.js Frontend container** running on port `3000`
+4. Access the web app at `http://localhost:3000`.
+
+---
+
+### 🧪 Verification & Test Suites
+
+To verify the mathematical hashing determinism, LGD routing engines, and BehaviorGuard anti-fraud quarantine thresholds, execute the automated test suites:
+
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Activate your virtual environment:
+   * **Windows**: `.\venv\Scripts\Activate.ps1`
+   * **macOS/Linux**: `source venv/bin/activate`
+3. Execute the tests:
+   * **Windows (PowerShell)**:
+     ```powershell
+     $env:PYTHONPATH="."
+     venv\Scripts\python -m pytest
+     ```
+   * **macOS / Linux**:
+     ```bash
+     export PYTHONPATH="."
+     python -m pytest
+     ```
+
+#### Expected Test Output:
+```text
+============================= test session starts =============================
+platform win32 -- Python 3.10.9, pytest-8.2.2, pluggy-1.6.0
+rootdir: C:\Users\vitth\OneDrive\Documents\SEM VI\SuRaksha\LexFlowAI\backend
+plugins: anyio-4.13.0, asyncio-0.23.7
+asyncio: mode=strict
+collected 11 items
+
 tests\integration\test_evidence_vault.py .                               [  9%]
 tests\unit\test_hashing.py .                                             [ 18%]
 tests\unit\test_lgd_routing.py ...                                       [ 45%]
@@ -116,3 +249,4 @@ tests\unit\test_risk_scoring.py ...                                      [100%]
 
 ============================= 11 passed in 1.88s ==============================
 ```
+
