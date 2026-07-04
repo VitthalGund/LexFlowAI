@@ -34,7 +34,14 @@ async def get_map_details(
     db: AsyncIOMotorDatabase = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    m = await db.maps.find_one({"_id": map_id})
+    from bson import ObjectId
+    try:
+        m = await db.maps.find_one({"_id": map_id})
+        if not m:
+            m = await db.maps.find_one({"_id": ObjectId(map_id)})
+    except Exception:
+        raise HTTPException(status_code=404, detail="MAP not found")
+        
     if not m:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

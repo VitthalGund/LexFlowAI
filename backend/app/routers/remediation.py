@@ -32,13 +32,15 @@ async def get_remediation_payload(
         
     return payload
 
+from app.core.dependencies import get_current_user, require_roles
+
 @router.post("/{map_id}/approve")
 async def approve_remediation_payload(
     map_id: str,
     db: AsyncIOMotorDatabase = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_roles(["IT_ENGINEER"]))
 ):
-    # In a real app, verify user has IT_ENGINEER role
+    # Verified user has IT_ENGINEER role
     try:
         map_doc = await db.maps.find_one({"_id": map_id})
         query = {"_id": map_id}

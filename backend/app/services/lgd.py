@@ -12,8 +12,21 @@ async def get_branches_for_scope(db: AsyncIOMotorDatabase, scope: str, target_st
     elif scope == "STATE":
         if not target_states:
             return []
-        # Query where state_code is in target_states
         branches = await db.branches.find({"state_code": {"$in": target_states}}).to_list(length=1000)
+        return [b["lgd_code"] for b in branches]
+        
+    elif scope == "DISTRICT":
+        if not target_states:
+            return []
+        # In this case, target_states contains district names or codes
+        branches = await db.branches.find({"district": {"$in": target_states}}).to_list(length=1000)
+        return [b["lgd_code"] for b in branches]
+        
+    elif scope == "BRANCH":
+        if not target_states:
+            return []
+        # In this case, target_states contains exact LGD codes
+        branches = await db.branches.find({"lgd_code": {"$in": target_states}}).to_list(length=1000)
         return [b["lgd_code"] for b in branches]
         
     return []

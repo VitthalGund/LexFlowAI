@@ -56,11 +56,7 @@ DEMO_MAPS_EXTRACTION = [
 ]
 
 async def call_llm_for_extraction(circular_text: str) -> List[Dict[str, Any]]:
-    # Failsafe check for demo circular
-    if "101" in circular_text or "Cybersecurity Framework" in circular_text or "MFA" in circular_text:
-        return DEMO_MAPS_EXTRACTION
-        
-    # Standard LLM Extraction
+    # Only fall back to demo maps if literally no LLM is configured or all fail
     prompt = f"""You are a regulatory compliance expert for Indian banking.
 Analyze the following RBI circular and extract ALL compliance requirements.
 For each requirement, you MUST provide a JSON object with:
@@ -73,71 +69,71 @@ For each requirement, you MUST provide a JSON object with:
 - geographic_scope: One of [NATIONAL, STATE, DISTRICT, BRANCH]
 - target_states: List of state codes if scope is STATE (e.g. ["29"] for Karnataka)
 
-Return ONLY valid JSON array. Do not include markdown codeblocks (do not wrap in ```json).
+Return ONLY a valid JSON array. Do not include markdown codeblocks.
 
 CIRCULAR TEXT:
 {circular_text}
 """
-    try:
-        if settings.USE_LOCAL_LLM:
-            import httpx
+
+    def clean_json(text: str) -> List[Dict]:
+        text = text.strip()
+        if text.startswith("```"):
+            parts = text.split("\n", 1)
+            if len(parts) > 1:
+                text = parts[1].rsplit("```", 1)[0].strip()
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            for k, v in parsed.items():
+                if isinstance(v, list):
+                    return v
+            return [parsed]
+        return parsed
+
+    import httpx
+    
+    # Mode auto or online + Gemini key
+    if settings.LLM_MODE in ("auto", "online") and settings.GEMINI_API_KEY:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={settings.GEMINI_API_KEY}",
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.1, "response_mime_type": "application/json"}
+                    },
+                    timeout=30.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data["candidates"][0]["content"]["parts"][0]["text"]
+                    return clean_json(content)
+                else:
+                    print(f"Gemini API Error: {response.text}")
+        except Exception as e:
+            print(f"Error calling Gemini: {e}")
+
+    # Fallback to Local Ollama
+    if settings.LLM_MODE in ("auto", "local") and settings.USE_LOCAL_LLM:
+        try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{settings.OLLAMA_BASE_URL}/v1/chat/completions",
                     json={
                         "model": settings.OLLAMA_MODEL,
                         "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.0
+                        "temperature": 0.0,
+                        "response_format": {"type": "json_object"}
                     },
                     timeout=90.0
                 )
                 if response.status_code == 200:
                     data = response.json()
-                    content = data["choices"][0]["message"]["content"].strip()
-                    # Clean possible markdown wrapping
-                    if content.startswith("```"):
-                        content = content.split("\n", 1)[1].rsplit("\n", 1)[0].strip()
-                        if content.startswith("json"):
-                            content = content[4:].strip()
-                    return json.loads(content)
-        elif settings.USE_OPENAI_FALLBACK and settings.OPENAI_API_KEY:
-            from openai import AsyncOpenAI
-            client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-            response = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0
-            )
-            content = response.choices[0].message.content.strip()
-            # Clean possible markdown wrapping
-            if content.startswith("```"):
-                content = content.split("\n", 1)[1].rsplit("\n", 1)[0].strip()
-                if content.startswith("json"):
-                    content = content[4:].strip()
-            return json.loads(content)
-        elif settings.SARVAM_API_KEY:
-            import httpx
-            async with httpx.AsyncClient() as client:
-                # Mock or actual Sarvam completion
-                headers = {"Authorization": f"Bearer {settings.SARVAM_API_KEY}"}
-                response = await client.post(
-                    f"{settings.SARVAM_BASE_URL}/chat/completions",
-                    json={
-                        "model": "sarvam-2b", # or specific model
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.0
-                    },
-                    headers=headers,
-                    timeout=30.0
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    content = data["choices"][0]["message"]["content"].strip()
-                    return json.loads(content)
-    except Exception as e:
-        print(f"Error in LLM Call: {e}")
-        
-    # Absolute fallback to prevent demo crash
+                    content = data["choices"][0]["message"]["content"]
+                    return clean_json(content)
+        except Exception as e:
+            print(f"Error calling Ollama: {e}")
+            
+    # Absolute fallback if all real LLMs fail
     return DEMO_MAPS_EXTRACTION
 
 # --- LangGraph Node Actions ---

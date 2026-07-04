@@ -32,6 +32,26 @@ async def upload_evidence(
             detail="Empty file uploaded"
         )
         
+    from bson import ObjectId
+    
+    try:
+        map_doc = await db.maps.find_one({"_id": map_id})
+        if not map_doc:
+            map_doc = await db.maps.find_one({"_id": ObjectId(map_id)})
+    except Exception:
+        raise HTTPException(status_code=404, detail="MAP not found")
+        
+    if not map_doc:
+        raise HTTPException(status_code=404, detail="MAP not found")
+        
+    if current_user.get("role") == "BRANCH_MANAGER":
+        user_lgd = current_user.get("branch_lgd_code")
+        if user_lgd not in map_doc.get("target_lgd_codes", []):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to submit evidence for this branch/MAP"
+            )
+        
     # Process upload
     entry = await process_evidence_upload(
         db,

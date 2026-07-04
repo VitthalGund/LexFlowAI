@@ -1,3 +1,5 @@
+from app.core.config import settings
+import httpx
 
 MOCK_TRANSLATIONS = {
     "Update TLS to v1.3": {
@@ -22,18 +24,48 @@ MOCK_TRANSLATIONS = {
 
 async def translate_text(text: str, title: str, lang: str) -> str:
     """
-    Translates text to target language code.
-    Checks pre-seeded dict first, otherwise appends translation label.
+    Translates text to target language code using Gemini API.
+    Falls back to pre-seeded dict or a mock label if API fails.
     """
+    lang_names = {
+        "kn": "Kannada",
+        "ta": "Tamil",
+        "ml": "Malayalam",
+        "hi": "Hindi",
+        "te": "Telugu",
+        "mr": "Marathi"
+    }
+    
+    target_language = lang_names.get(lang, lang)
+    
+    if settings.GEMINI_API_KEY:
+        try:
+            prompt = f"Translate the following text to {target_language}. Return ONLY the translated text without any quotes or explanations.\n\n{text}"
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={settings.GEMINI_API_KEY}",
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.1}
+                    },
+                    timeout=15.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    translated_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                    return translated_text
+        except Exception as e:
+            print(f"Translation API Error: {e}")
+
+    # Fallbacks if API fails or is not configured
     if title in MOCK_TRANSLATIONS and lang in MOCK_TRANSLATIONS[title]:
         return MOCK_TRANSLATIONS[title][lang]
         
-    # Mock translation suffix for fallback
     lang_labels = {
         "kn": "ಕನ್ನಡ",
         "ta": "தமிழ்",
         "ml": "മലയാളം",
         "hi": "हिंदी"
     }
-    label = lang_labels.get(lang, lang)
+    label = lang_labels.get(lang, target_language)
     return f"[{label} Translation of '{title}']: {text}"

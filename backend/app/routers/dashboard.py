@@ -103,16 +103,9 @@ async def get_state_heatmap(
         total = stats["total"]
         completed = stats["completed"]
         
-        # Hardcode beautiful mock baseline if total is 0 to ensure heatmap has color during demo
+        # Real baseline calculation - no more mock data
         if total == 0:
-            if code == "29":  # Karnataka
-                percentage = 78.0
-            elif code == "33":  # Tamil Nadu
-                percentage = 45.0
-            elif code == "32":  # Kerala
-                percentage = 12.0
-            else:
-                percentage = 0.0
+            percentage = 0.0
         else:
             percentage = round((completed / total) * 100, 1)
             
