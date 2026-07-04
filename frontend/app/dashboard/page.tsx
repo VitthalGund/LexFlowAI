@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { MAP } from '@/types/map';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 
 interface StatOverview {
   compliance_rate: number;
@@ -49,6 +50,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAuditMap, setSelectedAuditMap] = useState<MAP | null>(null);
+
+  const { t } = useTranslation();
 
   const fetchDashboardData = async () => {
     try {
@@ -105,8 +108,8 @@ export default function DashboardPage() {
       {/* Welcome Bar */}
       <div className="flex justify-between items-center bg-white p-6 rounded-lg border border-neutral-200 shadow-sm">
         <div>
-          <h2 className="text-lg font-bold text-slate-800">Compliance Officer Workspace</h2>
-          <p className="text-xs text-slate-500 mt-1">Real-time cryptographic audit coverage for Canara Bank regional networks.</p>
+          <h2 className="text-lg font-bold text-slate-800">{t('Compliance Officer Workspace')}</h2>
+          <p className="text-xs text-slate-500 mt-1">{t('Real-time cryptographic audit coverage for Canara Bank regional networks.')}</p>
         </div>
         <button
           onClick={handleRefresh}
@@ -114,7 +117,7 @@ export default function DashboardPage() {
           className="flex items-center gap-2 text-xs font-semibold bg-primary-50 hover:bg-primary-100 text-primary-700 px-3 py-2 border border-primary-100 rounded-lg active:scale-95 transition-all"
         >
           <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          <span>{refreshing ? 'Refreshing...' : 'Refresh Feed'}</span>
+          <span>{refreshing ? 'Refreshing...' : t('Refresh Feed')}</span>
         </button>
       </div>
 
@@ -122,7 +125,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Compliance Rate</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{t('Compliance Rate')}</span>
             <span className="text-3xl font-bold text-primary-600 block mt-1">{stats?.compliance_rate}%</span>
             <span className="text-xs text-slate-500 mt-1 block">847 active assignments</span>
           </div>
@@ -152,7 +155,7 @@ export default function DashboardPage() {
 
         <Card className="flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Active Circulars</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{t('Active Circulars')}</span>
             <span className="text-3xl font-bold text-slate-800 block mt-1">{stats?.active_circulars}</span>
             <span className="text-xs text-slate-500 mt-1 block">Ingested from RBI portal</span>
           </div>
@@ -163,7 +166,7 @@ export default function DashboardPage() {
 
         <Card className="flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Outstanding MAPs</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{t('Outstanding MAPs')}</span>
             <span className="text-3xl font-bold text-warning-600 block mt-1">{stats?.pending_tasks}</span>
             <span className="text-xs text-slate-500 mt-1 block">Pending branch actions</span>
           </div>
@@ -174,7 +177,7 @@ export default function DashboardPage() {
 
         <Card className={`flex items-center justify-between ${(stats?.quarantined_alerts || 0) > 0 ? 'bg-red-50/50 border-red-200' : ''}`}>
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Quarantined Uploads</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">{t('Quarantined Uploads')}</span>
             <span className={`text-3xl font-bold block mt-1 ${(stats?.quarantined_alerts || 0) > 0 ? 'text-red-600' : 'text-slate-800'}`}>
               {stats?.quarantined_alerts}
             </span>
@@ -192,7 +195,7 @@ export default function DashboardPage() {
         {/* Geographic Heatmap */}
         <div className="lg:col-span-7 bg-white border border-neutral-200 rounded-lg shadow-sm overflow-hidden flex flex-col">
           <div className="p-5 border-b border-neutral-200 bg-neutral-50 flex justify-between items-center">
-            <h3 className="font-bold text-slate-800 text-sm tracking-tight">Geographic Compliance Heatmap</h3>
+            <h3 className="font-bold text-slate-800 text-sm tracking-tight">{t('Geographic Compliance Heatmap')}</h3>
             <span className="text-xs font-bold text-slate-400">Regional Branch Outlets</span>
           </div>
           <div className="p-6 flex-1 flex flex-col justify-between">
@@ -308,7 +311,7 @@ export default function DashboardPage() {
             <div className="p-5 border-b border-neutral-200 bg-neutral-50 flex justify-between items-center">
               <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-primary-500" />
-                <span>BehaviorGuard Risk Alerts</span>
+                <span>{t('BehaviorGuard Risk Alerts')}</span>
               </h3>
               <span className="bg-red-100 text-red-700 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
                 Quarantined
@@ -368,7 +371,7 @@ export default function DashboardPage() {
         <div className="p-5 border-b border-neutral-200 bg-neutral-50 flex justify-between items-center">
           <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
             <Search className="h-5 w-5 text-primary-500" />
-            <span>Active MAPs Audit Trail</span>
+            <span>{t('Active MAPs Audit Trail')}</span>
           </h3>
         </div>
         <div className="overflow-x-auto">

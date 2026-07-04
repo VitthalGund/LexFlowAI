@@ -70,7 +70,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <div className={`fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <Sidebar />
+        <Sidebar onClose={() => setIsSidebarOpen(false)} />
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 max-h-screen overflow-hidden">

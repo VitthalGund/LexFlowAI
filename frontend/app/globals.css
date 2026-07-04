@@ -66,3 +66,62 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }
+
+/* --- Google Translate UI Overrides --- */
+/* Hide the top banner frame completely */
+iframe.skiptranslate,
+.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate,
+.VIpgJd-ZVi9od-ORHb-OEVmcd,
+.VIpgJd-ZVi9od-ORHb-OEVmcd.skiptranslate,
+iframe[id*="translate"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+}
+
+/* Reset body top padding and positioning added by Google Translate */
+body {
+  top: 0px !important; 
+  position: static !important;
+}
+
+/* Hide Google translation hover tooltips and balloon popups */
+#goog-gt-tt,
+.goog-te-balloon-frame,
+.goog-te-ftab-frame,
+.goog-te-menu-value,
+.VIpgJd-yAWgAd-hSRGPd {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Hide the "Powered by Google" text and logo */
+.goog-te-gadget {
+  font-size: 0px !important;
+  color: transparent !important;
+}
+.goog-logo-link {
+  display: none !important;
+}
+.goog-te-gadget span {
+  display: none !important;
+}
+
+/* Style the actual Google Translate <select> dropdown to match our UI */
+.goog-te-gadget .goog-te-combo {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #334155 !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  border: 1px solid #e2e8f0 !important;
+  background-color: #f8fafc !important;
+  outline: none !important;
+  cursor: pointer !important;
+  margin: 0 !important;
+}
+.goog-te-gadget .goog-te-combo:hover {
+  background-color: #f1f5f9 !important;
+}
