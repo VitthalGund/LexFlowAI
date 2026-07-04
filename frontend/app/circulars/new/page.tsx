@@ -13,7 +13,8 @@ import {
   Calendar,
   Check,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -54,6 +55,26 @@ export default function IngestCircularPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [activeStep, setActiveStep] = useState(0);
   const [extractedMaps, setExtractedMaps] = useState<ExtractedMAP[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncSentinel = async () => {
+    try {
+      setIsSyncing(true);
+      const res = await api.get('/api/v1/circulars/sync');
+      if (res.data.status === 'success') {
+        setCircularNumber(res.data.data.circular_number);
+        setTitle(res.data.data.title);
+        setRawText(res.data.data.raw_text);
+        if (res.data.data.issued_date) {
+            setIssuedDate(res.data.data.issued_date.split('T')[0]);
+        }
+      }
+    } catch (err) {
+      alert('Failed to sync with RBI Sentinel');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Steps for LangGraph visualization
   const steps = [
@@ -117,13 +138,23 @@ export default function IngestCircularPage() {
           <p className="text-xs text-slate-500 mt-1">Upload official RBI notifications to trigger autonomous Multi-Agent compliance workflows.</p>
         </div>
         {status === 'idle' && (
-          <button
-            onClick={fillDemoTemplate}
-            className="flex items-center gap-1.5 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3.5 py-2 border border-emerald-200 rounded-lg active:scale-95 transition-all"
-          >
-            <Sparkles className="h-4 w-4 text-emerald-600" />
-            <span>Pre-fill Demo RBI circular</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSyncSentinel}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 px-3.5 py-2 border border-blue-200 rounded-lg active:scale-95 transition-all disabled:opacity-50"
+            >
+              {isSyncing ? <Loader2 className="h-4 w-4 animate-spin text-blue-600" /> : <RefreshCw className="h-4 w-4 text-blue-600" />}
+              <span>Sync CircularSentinel</span>
+            </button>
+            <button
+              onClick={fillDemoTemplate}
+              className="flex items-center gap-1.5 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3.5 py-2 border border-emerald-200 rounded-lg active:scale-95 transition-all"
+            >
+              <Sparkles className="h-4 w-4 text-emerald-600" />
+              <span>Pre-fill Demo</span>
+            </button>
+          </div>
         )}
       </div>
 
