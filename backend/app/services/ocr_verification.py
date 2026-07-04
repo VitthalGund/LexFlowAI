@@ -1,5 +1,6 @@
 import io
 import re
+import difflib
 from typing import List, Dict, Any
 from app.models.ocr_models import EvidenceVerificationResult
 import pytesseract
@@ -9,6 +10,9 @@ import numpy as np
 
 # Common stopwords to filter out
 STOPWORDS = {"the", "and", "a", "an", "in", "to", "of", "for", "with", "on", "as", "is", "be", "are", "by", "this", "that", "it"}
+
+MULTI_MODAL_DICTIONARY = ["manager", "signed", "seal", "approved", "signature", "authorized"]
+
 
 def extract_keywords_from_map(map_doc: dict) -> List[str]:
     text_to_process = f"{map_doc.get('title', '')} {map_doc.get('kpi', '')} {map_doc.get('description', '')}"
@@ -87,18 +91,32 @@ async def extract_evidence_data(file_content: bytes, file_name: str, map_doc: di
     except Exception:
         pass # Will handle empty/failure down the line
         
-    required_keywords = extract_keywords_from_map(map_doc)
+        required_keywords = extract_keywords_from_map(map_doc)
+    
+    # Fuzzy match for mandatory dictionary terms
+    text_lower = extracted_text.lower()
+    words = re.findall(r'\b[a-z]+\b', text_lower)
+    detected_dict_terms = set()
+    for term in MULTI_MODAL_DICTIONARY:
+        if term in text_lower:
+            detected_dict_terms.add(term)
+        else:
+            matches = difflib.get_close_matches(term, words, n=1, cutoff=0.8)
+            if matches:
+                detected_dict_terms.add(term)
     
     return {
         "text_content": extracted_text,
         "detected_visual_tokens": visual_tokens,
-        "target_keywords": required_keywords
+        "target_keywords": required_keywords,
+        "detected_dict_terms": list(detected_dict_terms)
     }
 
 async def verify_evidence_payload(extracted_data: dict, confidence_threshold: float = 0.3) -> EvidenceVerificationResult:
     extracted_text = extracted_data.get("text_content", "")
     visual_tokens = extracted_data.get("detected_visual_tokens", {"official_seal_present": False, "handwritten_signature_present": False})
     required_keywords = extracted_data.get("target_keywords", [])
+    detected_dict_terms = extracted_data.get("detected_dict_terms", [])
     
     if not extracted_text:
         return EvidenceVerificationResult(
@@ -122,6 +140,11 @@ async def verify_evidence_payload(extracted_data: dict, confidence_threshold: fl
         content_match_score = 1.0
     else:
         content_match_score = len(matched_keywords) / len(required_keywords)
+        
+    # Adjust confidence score based on multi-modal dictionary
+    if detected_dict_terms:
+        # Boost score slightly if standard compliance terms are found
+        content_match_score = min(1.0, content_match_score + (len(detected_dict_terms) * 0.1))
     
     text_verified = content_match_score >= confidence_threshold
     visual_verified = visual_tokens.get("official_seal_present", False) or visual_tokens.get("handwritten_signature_present", False)

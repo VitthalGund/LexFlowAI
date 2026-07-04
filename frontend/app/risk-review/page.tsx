@@ -69,13 +69,32 @@ export default function RiskReviewPage() {
   }, []);
 
   const handleOverrideAccept = async (itemId: string) => {
-    // Override simulation
-    alert(`Compliance override executed for ${itemId}. Status updated to ACCEPTED in ledger.`);
-    fetchQueue();
+    try {
+      await api.post(`/api/v1/risk-review/${itemId}/override`);
+      alert(`Compliance override executed for ${itemId}. Status updated to ACCEPTED in ledger.`);
+      fetchQueue();
+    } catch (err) {
+      alert('Failed to override quarantine');
+    }
   };
 
-  const handleEscalate = (itemId: string) => {
-    alert(`Security report for ${itemId} escalated to Regional IT Head & Ho-Bengaluru Compliance Team.`);
+  const handleEscalate = async (itemId: string) => {
+    try {
+      await api.post(`/api/v1/risk-review/${itemId}/escalate`);
+      alert(`Security report for ${itemId} escalated to Regional IT Head & Ho-Bengaluru Compliance Team.`);
+    } catch (err) {
+      alert('Failed to escalate');
+    }
+  };
+
+  const handleReject = async (itemId: string) => {
+    try {
+      await api.post(`/api/v1/risk-review/${itemId}/reject`);
+      alert(`Evidence permanently rejected for ${itemId}. MAP reopened for branch.`);
+      fetchQueue();
+    } catch (err) {
+      alert('Failed to reject');
+    }
   };
 
   return (
@@ -248,10 +267,17 @@ export default function RiskReviewPage() {
                     <span>Override Accept</span>
                   </button>
                   <button
+                    onClick={() => handleReject(activeItem.id)}
+                    className="bg-white border border-slate-200 text-slate-700 font-bold text-xs py-2.5 px-4 rounded hover:bg-slate-50 active:scale-95 transition-colors flex items-center gap-1.5"
+                  >
+                    <AlertTriangle className="h-4 w-4 text-orange-500" />
+                    <span>Confirm Reject</span>
+                  </button>
+                  <button
                     onClick={() => handleEscalate(activeItem.id)}
                     className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2.5 px-4 rounded shadow active:scale-95 transition-colors flex items-center gap-1.5"
                   >
-                    <AlertTriangle className="h-4 w-4" />
+                    <ShieldAlert className="h-4 w-4" />
                     <span>Escalate Violation</span>
                   </button>
                 </div>

@@ -82,6 +82,15 @@ async def process_evidence_upload(
                 "behavioral_risk_score": risk_score
             }}
         )
+    elif vault_status == "REJECTED":
+        await db.maps.update_one(
+            map_query,
+            {"$set": {
+                "status": "REJECTED",
+                "behavioral_risk_score": risk_score,
+                "rejection_reason": quarantine_reason
+            }}
+        )
     else:
         await db.maps.update_one(
             map_query,
