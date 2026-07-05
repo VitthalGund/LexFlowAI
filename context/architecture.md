@@ -18,9 +18,9 @@
 ### System Boundary Overview
 
 ```
-[RBI Circular Input]
-       │
-       ▼
+[RBI Feed (Circulars/Speeches)]
+        │
+        ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    LEXFLOW AI PLATFORM                          │
 │                                                                 │
@@ -29,15 +29,20 @@
 │  │                                                          │   │
 │  │  ┌─────────────────┐    ┌──────────────────────────┐    │   │
 │  │  │ Extraction Agent │───▶│   Validation Agent       │    │   │
-│  │  │  (Sarvam-105B)  │◀───│  (Schema Enforcement)    │    │   │
+│  │  │   (Sarvam/Gemini)│◀───│  (Schema Enforcement)    │    │   │
 │  │  └─────────────────┘    └──────────────────────────┘    │   │
 │  │          │                        │                      │   │
-│  │          │ (valid MAPs only)      │ (loop if invalid)    │   │
-│  │          ▼                        │                      │   │
-│  │  ┌─────────────────┐             │                      │   │
-│  │  │  Routing Agent  │◀────────────┘                      │   │
-│  │  │  (LGD Mapper)   │                                    │   │
-│  │  └─────────────────┘                                    │   │
+│  │          ▼                        ▼                      │   │
+│  │  ┌─────────────────┐    ┌──────────────────────────┐    │   │
+│  │  │   Red-Team Node  │◀───│   Forensics Node (Upload)│    │   │
+│  │  │   (Critique Agent│    │  (ELA, EXIF, PDF Checks) │    │   │
+│  │  └─────────────────┘    └──────────────────────────┘    │   │
+│  │          │                        │                      │   │
+│  │          ▼                        ▼                      │   │
+│  │  ┌─────────────────┐    ┌──────────────────────────┐    │   │
+│  │  │  Routing Agent  │    │  ContinuumGuard (OPA)    │    │   │
+│  │  │  (LGD Mapper)   │    │  (Rego Policy Engine)    │    │   │
+│  │  └─────────────────┘    └──────────────────────────┘    │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌─────────────┐   │
@@ -51,20 +56,24 @@
 │  │  │  circulars   │ │    maps      │ │  evidence_vault   │ │  │
 │  │  │  collection  │ │  collection  │ │  (append-only)    │ │  │
 │  │  └──────────────┘ └──────────────┘ └───────────────────┘ │  │
-│  │  ┌──────────────┐ ┌──────────────┐                       │  │
-│  │  │ telemetry_   │ │   branches   │                       │  │
-│  │  │   logs       │ │   (LGD)      │                       │  │
-│  │  └──────────────┘ └──────────────┘                       │  │
+│  │  ┌──────────────┐ ┌──────────────┐ ┌───────────────────┐ │  │
+│  │  │ telemetry_   │ │   branches   │ │  horizon_signals  │ │  │
+│  │  │   logs       │ │   (LGD)      │ │  collection      │ │  │
+│  │  └──────────────┘ └──────────────┘ └───────────────────┘ │  │
+│  │  ┌───────────────────────────────┐                       │  │
+│  │  │    compliance_drift_alerts    │                       │  │
+│  │  └───────────────────────────────┘                       │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                                                                 │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │              Next.js Frontend                             │  │
 │  │  ┌──────────────┐ ┌──────────────┐ ┌───────────────────┐ │  │
-│  │  │  CO Dashboard│ │Branch Portal │ │  Auditor View     │ │  │
+│  │  │  CO Dashboard│ │Branch Portal │ │  Horizon Scanner  │ │  │
 │  │  └──────────────┘ └──────────────┘ └───────────────────┘ │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
 
 ---
 
@@ -95,7 +104,16 @@ GET    /api/v1/dashboard/overview        # Compliance summary
 GET    /api/v1/dashboard/heatmap         # Geographic compliance data
 GET    /api/v1/branches                  # Branch list with LGD codes
 
+GET    /api/v1/horizon/signals           # Get foresight scanner signals
+POST   /api/v1/horizon/signals/{id}/start-prep # Start preparatory MAP
+POST   /api/v1/horizon/signals/{id}/dismiss    # Dismiss scanner signal
+
+GET    /api/v1/continuum/drift-alerts    # List active drift alarms
+POST   /api/v1/continuum/drift-alerts/{id}/acknowledge # Acknowledge drift
+POST   /api/v1/continuum/simulate-drift  # Trigger test drift telemetry
+
 POST   /api/v1/auth/login                # JWT authentication
+
 ```
 
 #### Frontend: Next.js 14 + TypeScript + Tailwind CSS
@@ -114,25 +132,33 @@ POST   /api/v1/auth/login                # JWT authentication
 ```python
 # State definition
 class ComplianceState(TypedDict):
+    circular_id: str
     circular_text: str
     raw_maps: list[dict]
     validated_maps: list[MAP]
     validation_errors: list[str]
-    routing_map: dict[str, list[str]]  # map_id -> [lgd_codes]
+    remediation_payloads: list[dict]
     iteration_count: int
-    status: Literal["extracting", "validating", "routing", "complete", "failed"]
+    status: str
+    decision_log: list[dict]
+    red_team_critique: str
 
 # Graph nodes
 NODES = [
-    "extract_maps",      # Sarvam-105B extraction
+    "extract_maps",      # Extraction agent (Ollama / Gemini)
     "validate_maps",     # Pydantic schema check
-    "route_maps",        # LGD code mapping
-    "translate_maps",    # BharatGen multilingual output
+    "red_team",          # Red-team agent critique checking
+    "route_maps",        # LGD code routing mapping
+    "remediate",         # Remediation Forge scripts creator
+    "translate_maps",    # Multilingual translation output
 ]
 
-# Conditional edge: if validation fails and iteration < 3 → loop back
-# If iteration >= 3 → partial emit with error flags
+# Conditional edge:
+# 1. Validation node: if validation errors & iter < 3 -> extract
+# 2. Red-team node: if high severity critique & iter < 3 -> extract
+# Otherwise -> route
 ```
+
 
 ---
 
@@ -154,6 +180,9 @@ class MAP(BaseModel):
     status: MAPStatus               # PENDING, IN_PROGRESS, SUBMITTED, VERIFIED, QUARANTINED
     behavioral_risk_score: float     # 0.0 (safe) to 1.0 (high risk)
     evidence_hash: str | None        # SHA-256 of submitted evidence
+    is_anticipatory: bool            # True if created Speculatively from Horizon Scanner
+    horizon_signal_id: str | None    # Reference to foresight signal
+
 ```
 
 ---
@@ -175,6 +204,10 @@ class EvidenceVaultEntry(BaseModel):
     telemetry_snapshot: dict         # Frozen telemetry at submission time
     vault_status: Literal["ACCEPTED", "QUARANTINED"]
     quarantine_reason: str | None    # Filled if status = QUARANTINED
+    forensics_verdict: str           # SentinelVision verdict (CLEAN, SUSPICIOUS, LIKELY_TAMPERED)
+    forensics_signals: list[str]     # Specific tamper alarms raised
+    forensics_score: float           # Computed 0-1 anomaly score
+
 ```
 
 **Invariant:** Evidence vault entries are NEVER updated or deleted. All state changes create new entries with `amendment_of` reference.
@@ -277,3 +310,7 @@ class Branch(BaseModel):
 4. **MAPs with failed validation NEVER reach the database.** The LangGraph loop must resolve before persistence.
 5. **Quarantined evidence NEVER counts toward compliance percentage.** Only ACCEPTED vault entries contribute.
 6. **LGD routing is strict.** A branch with LGD code outside circular scope never receives a MAP.
+7. **SentinelVision forensics run on all uploads.** Files with LIKELY_TAMPERED verdicts route to quarantined review.
+8. **ContinuumGuard Policy-as-Code is enforcement-first.** telemetry configurations (TLS, MFA) must match Rego policy conditions or drift alarms raise.
+9. **Foresight Horizon scanning signals are advisory.** No binding tasks are generated until converted to prep MAPs.
+

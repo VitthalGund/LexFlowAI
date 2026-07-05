@@ -91,7 +91,7 @@ async def extract_evidence_data(file_content: bytes, file_name: str, map_doc: di
     except Exception:
         pass # Will handle empty/failure down the line
         
-        required_keywords = extract_keywords_from_map(map_doc)
+    required_keywords = extract_keywords_from_map(map_doc)
     
     # Fuzzy match for mandatory dictionary terms
     text_lower = extracted_text.lower()

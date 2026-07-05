@@ -64,6 +64,10 @@ export function useAuth() {
       // Navigate based on role
       if (userData.role === 'BRANCH_MANAGER' && userData.branch_lgd_code) {
         router.push(`/branch/${userData.branch_lgd_code}/maps`);
+      } else if (userData.role === 'AUDITOR') {
+        router.push('/vault');
+      } else if (userData.role === 'IT_ENGINEER') {
+        router.push('/it/maps');
       } else {
         router.push('/dashboard');
       }

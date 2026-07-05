@@ -25,16 +25,17 @@ export function Header({ title, onMenuClick }: HeaderProps) {
       document.body.appendChild(script);
 
       // Add initialization function
-      window.googleTranslateElementInit = () => {
-        new window.google.translate.TranslateElement(
+      (window as any).googleTranslateElementInit = () => {
+        new (window as any).google.translate.TranslateElement(
           {
             pageLanguage: "en",
             layout:
-              window.google.translate.TranslateElement.InlineLayout.SIMPLE,
+              (window as any).google.translate.TranslateElement.InlineLayout.SIMPLE,
           },
           "google_translate_element",
         );
       };
+
     }
   }, []);
 

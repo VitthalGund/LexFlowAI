@@ -28,6 +28,7 @@ interface MAPItem {
   geographic_scope: string;
   target_lgd_codes: string[];
   status: string;
+  is_anticipatory?: boolean;
 }
 
 export default function MapsPage() {
@@ -140,11 +141,23 @@ export default function MapsPage() {
       ) : filteredMaps.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredMaps.map((item) => (
-            <Card key={item.id} className="hover:border-primary-400 flex flex-col justify-between h-full relative">
+            <Card 
+              key={item.id} 
+              className={`hover:border-primary-400 flex flex-col justify-between h-full relative ${
+                item.is_anticipatory ? 'border-dashed border-2 border-amber-300' : ''
+              }`}
+            >
               <div className="space-y-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-bold text-slate-800 text-sm">{item.title}</h3>
+                    <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                      <span>{item.title}</span>
+                      {item.is_anticipatory && (
+                        <span className="text-[9px] bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded tracking-wide uppercase shrink-0">
+                          Anticipatory
+                        </span>
+                      )}
+                    </h3>
                     <span className="text-[10px] text-slate-400 font-mono block mt-0.5">{item.id}</span>
                   </div>
                   <MAPStatusBadge status={item.status} />

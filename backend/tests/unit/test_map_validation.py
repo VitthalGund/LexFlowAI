@@ -32,7 +32,7 @@ async def test_map_validation_node_success():
     
     # Check conditional routing
     action = should_loop_or_proceed(new_state)
-    assert action == "route"
+    assert action == "red_team"
 
 @pytest.mark.asyncio
 async def test_map_validation_node_failure_triggers_loop():
@@ -67,7 +67,7 @@ async def test_map_validation_node_failure_triggers_loop():
     assert action == "extract"
 
 def test_map_validation_max_iterations():
-    """Verify that after 3 iterations the graph forces route even with errors."""
+    """Verify that after 3 iterations the graph forces red_team even with errors."""
     state: ComplianceState = {
         "circular_id": "123",
         "circular_text": "Sample circular text",
@@ -79,4 +79,5 @@ def test_map_validation_max_iterations():
     }
     
     action = should_loop_or_proceed(state)
-    assert action == "route"
+    assert action == "red_team"
+

@@ -94,3 +94,97 @@ async def classify_relevance(title: str, text: str) -> dict:
         "confidence": 0.3,
         "reason": "Triage LLM unavailable — routed to manual review as a safe default."
     }
+
+
+async def extract_horizon_signal(title: str, text: str) -> dict:
+    """
+    Analyzes RBI Speeches/Publications to detect anticipatory signals of regulatory changes.
+    Returns:
+        {
+            "is_signal": bool,
+            "theme": str,
+            "confidence": float,
+            "rationale": str,
+            "estimated_action_window_days": int | None
+        }
+    """
+    combined = (title + " " + text).lower()
+
+    # Simple pre-filter for interest/relevance keywords to save LLM cost
+    has_relevant_kw = any(kw in combined for kw in BANKING_KEYWORDS)
+    if not has_relevant_kw:
+        return {
+            "is_signal": False,
+            "theme": "General Banking",
+            "confidence": 0.9,
+            "rationale": "No relevant banking keywords detected.",
+            "estimated_action_window_days": None
+        }
+
+    prompt = (
+        "You are a regulatory foresight analyst for an Indian commercial bank.\n"
+        "Analyze the following RBI speech/publication excerpt. Determine if it signals an upcoming or potential "
+        "change in regulations, master directions, or compliance frameworks (e.g. RBI indicating they are drafting a "
+        "new cybersecurity framework, planning to update digital lending guidelines, or warning banks about credit risks).\n"
+        "Return ONLY valid JSON with no markdown:\n"
+        "{\n"
+        "  \"is_signal\": bool,\n"
+        "  \"theme\": \"Short theme name, e.g. Cybersecurity, Digital Lending, KYC, Risk Management\",\n"
+        "  \"confidence\": 0.0-1.0,\n"
+        "  \"rationale\": \"One sentence explanation of why this signals or does not signal a regulatory change\",\n"
+        "  \"estimated_action_window_days\": integer (estimate number of days until actual circular might be issued, e.g. 90, 180, or null if unknown)\n"
+        "}\n\n"
+        f"TITLE: {title}\n\nTEXT (first 1500 chars):\n{text[:1500]}"
+    )
+
+    import json
+
+    # Gemini
+    if settings.LLM_MODE in ("auto", "online") and settings.GEMINI_API_KEY:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={settings.GEMINI_API_KEY}",
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.1, "response_mime_type": "application/json"}
+                    },
+                    timeout=20.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data["candidates"][0]["content"]["parts"][0]["text"]
+                    return json.loads(content.strip())
+        except Exception as e:
+            print(f"[Horizon Scanner] Gemini call failed: {e}")
+
+    # Ollama fallback
+    if settings.LLM_MODE in ("auto", "local") and settings.USE_LOCAL_LLM:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{settings.OLLAMA_BASE_URL}/v1/chat/completions",
+                    json={
+                        "model": settings.OLLAMA_MODEL,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.0,
+                        "response_format": {"type": "json_object"}
+                    },
+                    timeout=60.0
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data["choices"][0]["message"]["content"]
+                    return json.loads(content.strip())
+        except Exception as e:
+            print(f"[Horizon Scanner] Ollama call failed: {e}")
+
+    # Fail safe
+    return {
+        "is_signal": False,
+        "theme": "Unknown",
+        "confidence": 0.0,
+        "rationale": "LLM failed or was unavailable during scanning.",
+        "estimated_action_window_days": None
+    }
+

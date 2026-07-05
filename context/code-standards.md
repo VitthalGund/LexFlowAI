@@ -17,13 +17,16 @@ backend/
 │   │   ├── config.py        # Settings (pydantic-settings)
 │   │   ├── database.py      # MongoDB connection
 │   │   ├── security.py      # JWT auth, password hashing
-│   │   └── dependencies.py  # FastAPI Depends() functions
+│   │   ├── dependencies.py  # FastAPI Depends() functions
+│   │   └── scheduler.py     # Background task executor
 │   ├── models/
 │   │   ├── circular.py      # Pydantic models for circulars
 │   │   ├── map.py           # MAP model + enums
 │   │   ├── evidence.py      # Evidence vault model
 │   │   ├── telemetry.py     # Behavioral telemetry model
-│   │   └── branch.py        # Branch + LGD model
+│   │   ├── branch.py        # Branch + LGD model
+│   │   ├── horizon.py       # Horizon anticipatory signals schema
+│   │   └── continuum.py     # ContinuumGuard system states schema
 │   ├── routers/
 │   │   ├── circulars.py
 │   │   ├── maps.py
@@ -31,6 +34,8 @@ backend/
 │   │   ├── telemetry.py
 │   │   ├── branches.py
 │   │   ├── dashboard.py
+│   │   ├── horizon.py       # Horizon scanner endpoints
+│   │   ├── continuum.py     # Policy check/simulate endpoints
 │   │   └── auth.py
 │   ├── services/
 │   │   ├── lexgraph.py      # LangGraph pipeline
@@ -40,11 +45,17 @@ backend/
 │   │   ├── translation.py   # BharatGen translation service
 │   │   ├── vault.py         # SHA-256 hashing + evidence vault
 │   │   ├── behavior.py      # Risk scoring algorithm
+│   │   ├── forensics.py     # ELA + EXIF + PDF forensics verification
+│   │   ├── policy_engine.py # Rego template compiler + OPA client
 │   │   └── lgd.py           # LGD code lookup + mapping
+│   ├── prompts/
+│   │   ├── __init__.py
+│   │   └── red_team.py      # Adversarial Red-team audit prompt
 │   └── utils/
 │       ├── hashing.py       # SHA-256 utilities
 │       ├── telemetry.py     # Telemetry processing
 │       └── demo_data.py     # Seed data for hackathon demo
+
 ```
 
 #### Coding Rules
@@ -161,8 +172,10 @@ frontend/
 │   │       └── submit/[mapId]/page.tsx
 │   ├── vault/
 │   │   └── page.tsx
-│   └── risk-review/
-│       └── page.tsx
+│   ├── risk-review/
+│   │   └── page.tsx
+│   └── horizon/
+│       └── page.tsx          # Horizon foresight scanner page
 ├── components/
 │   ├── ui/                   # Base components
 │   │   ├── Badge.tsx
@@ -173,7 +186,8 @@ frontend/
 │   ├── maps/
 │   │   ├── MAPCard.tsx
 │   │   ├── MAPStatusBadge.tsx
-│   │   └── MAPList.tsx
+│   │   ├── MAPList.tsx
+│   │   └── ComplianceDriftStrip.tsx # ContinuumGuard alerts view
 │   ├── evidence/
 │   │   ├── EvidenceUploader.tsx  # Includes telemetry capture
 │   │   ├── EvidenceCard.tsx
@@ -201,6 +215,7 @@ frontend/
     ├── evidence.ts
     ├── branch.ts
     └── user.ts
+
 ```
 
 #### TypeScript Rules
@@ -310,10 +325,14 @@ SARVAM_API_BASE=https://api.sarvam.ai/v1
 BHARATGEN_API_KEY=
 OPENAI_API_KEY=  # Fallback only
 
+# OPA Configuration
+OPA_BASE_URL=http://localhost:8181
+
 # App
 APP_ENV=development
 LOG_LEVEL=INFO
 CORS_ORIGINS=http://localhost:3000
+
 
 # Demo
 SEED_DEMO_DATA=true

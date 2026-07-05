@@ -1,6 +1,17 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, Literal, Dict
+from typing import Optional, Literal, Dict, List
+
+
+class ForensicsVerdict(BaseModel):
+    """
+    Result of SentinelVision forensic analysis on an uploaded evidence file.
+    Advisory only — flags signals for human review, never auto-rejects.
+    """
+    tamper_score: float = Field(0.0, description="0-1 anomaly score (0=clean, 1=highly suspicious)")
+    signals: List[str] = Field(default_factory=list, description="Human-readable forensic signal descriptions")
+    verdict: Literal["CLEAN", "SUSPICIOUS", "LIKELY_TAMPERED"] = Field("CLEAN", description="Forensic verdict")
+
 
 class EvidenceVaultEntryBase(BaseModel):
     map_id: str = Field(..., description="Ref to MAP")
@@ -18,6 +29,12 @@ class EvidenceVaultEntryBase(BaseModel):
     vault_status: Literal["ACCEPTED", "QUARANTINED"] = Field("ACCEPTED")
     quarantine_reason: Optional[str] = Field(None, description="Detailed reasoning if quarantined")
     amendment_of: Optional[str] = Field(None, description="Ref to prior vault entry if this corrects a quarantine")
+    # SentinelVision forensics fields (advisory — for human review, not auto-rejection)
+    forensics_verdict: Literal["CLEAN", "SUSPICIOUS", "LIKELY_TAMPERED"] = Field("CLEAN", description="Forensic integrity verdict")
+    forensics_signals: List[str] = Field(default_factory=list, description="Forensic signal descriptions")
+    forensics_score: float = Field(0.0, description="Forensic tamper anomaly score 0-1")
+
 
 class EvidenceVaultEntryResponse(EvidenceVaultEntryBase):
     id: str = Field(..., description="MongoDB stringified ObjectId")
+

@@ -13,7 +13,7 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { loading, isAuthenticated } = useAuth();
+  const { loading, isAuthenticated, user } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const getPageTitle = (path: string) => {
@@ -27,13 +27,60 @@ export function AppLayout({ children }: AppLayoutProps) {
     return 'LexFlow AI';
   };
 
+  const isRouteAllowed = (role: string, path: string): boolean => {
+    if (role === 'COMPLIANCE_OFFICER') return true;
+    
+    if (role === 'REGIONAL_HEAD') {
+      return path.startsWith('/dashboard') || path.startsWith('/maps');
+    }
+    
+    if (role === 'BRANCH_MANAGER') {
+      return path.startsWith('/branch');
+    }
+    
+    if (role === 'AUDITOR') {
+      return path.startsWith('/vault');
+    }
+    
+    if (role === 'IT_ENGINEER') {
+      return path.startsWith('/it');
+    }
+    
+    return false;
+  };
+
+  const getDefaultRoute = (userObj: any): string => {
+    if (userObj.role === 'BRANCH_MANAGER') {
+      return `/branch/${userObj.branch_lgd_code || '0000000'}/maps`;
+    }
+    if (userObj.role === 'AUDITOR') {
+      return '/vault';
+    }
+    if (userObj.role === 'IT_ENGINEER') {
+      return '/it/maps';
+    }
+    return '/dashboard';
+  };
+
   const pageTitle = getPageTitle(pathname);
 
   useEffect(() => {
-    if (!loading && !isAuthenticated && pathname !== '/') {
-      router.push('/');
+    if (!loading) {
+      if (!isAuthenticated) {
+        if (pathname !== '/') {
+          router.push('/');
+        }
+      } else if (user) {
+        // Enforce role-based routing checks
+        const allowed = isRouteAllowed(user.role, pathname);
+        if (!allowed && pathname !== '/') {
+          const defaultRoute = getDefaultRoute(user);
+          router.push(defaultRoute);
+        }
+      }
     }
-  }, [pathname, loading, isAuthenticated, router]);
+  }, [pathname, loading, isAuthenticated, user, router]);
+
 
   useEffect(() => {
     setIsSidebarOpen(false); // Close sidebar on navigation

@@ -14,6 +14,9 @@ export interface EvidenceVaultEntry {
   vault_status: 'ACCEPTED' | 'QUARANTINED';
   quarantine_reason?: string;
   amendment_of?: string;
+  forensics_verdict?: 'CLEAN' | 'SUSPICIOUS' | 'LIKELY_TAMPERED';
+  forensics_signals?: string[];
+  forensics_score?: number;
 }
 
 export interface HashVerificationResult {

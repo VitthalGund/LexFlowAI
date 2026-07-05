@@ -21,10 +21,20 @@ services:
       - USE_LOCAL_LLM=true
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=gaganyatri/sarvam-2b-v0.5:latest
+      - OPA_BASE_URL=http://opa:8181
     depends_on:
       - mongodb
+      - opa
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  opa:
+    image: openpolicyagent/opa:latest
+    container_name: lexflow_opa
+    command: ["run", "--server", "--addr=0.0.0.0:8181"]
+    ports:
+      - "8181:8181"
     restart: unless-stopped
 
   frontend:
@@ -40,3 +50,4 @@ services:
 
 volumes:
   mongodb_data:
+

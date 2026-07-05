@@ -32,4 +32,6 @@ export interface MAP {
   remediation_payload?: RemediationPayload;
   remediation_approved?: boolean;
   remediation_approved_by?: string;
+  is_anticipatory?: boolean;
+  horizon_signal_id?: string;
 }

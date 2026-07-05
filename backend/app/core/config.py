@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
     
     SEED_DEMO_DATA: bool = True
+    OPA_BASE_URL: str = "http://localhost:8181"
+
 
     model_config = SettingsConfigDict(
         env_file=".env",

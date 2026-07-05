@@ -222,7 +222,23 @@ async def seed_demo_data():
         {"$set": {"status": "QUARANTINED", "behavioral_risk_score": 0.87}}
     )
     
+    # Seed mock_system_state for ContinuumGuard
+    await db.mock_system_state.delete_many({})
+    now = datetime.now(timezone.utc)
+
+    mock_states = [
+        {"branch_lgd_code": "2902001", "key": "tls_version", "value": "1.3", "updated_at": now},
+        {"branch_lgd_code": "2902002", "key": "tls_version", "value": "1.2", "updated_at": now}, # Drifted!
+        {"branch_lgd_code": "2902001", "key": "mfa_enabled", "value": "true", "updated_at": now},
+        {"branch_lgd_code": "2902002", "key": "mfa_enabled", "value": "false", "updated_at": now}, # Drifted!
+        {"branch_lgd_code": "2902001", "key": "password_rotation_days", "value": "90", "updated_at": now},
+        {"branch_lgd_code": "2902002", "key": "password_rotation_days", "value": "120", "updated_at": now}, # Drifted!
+    ]
+    await db.mock_system_state.insert_many(mock_states)
+    print("✓ Seeded mock system states for ContinuumGuard")
+    
     print("\n🎉 Demo data seed complete!")
+
 
 if __name__ == "__main__":
     asyncio.run(seed_demo_data())
@@ -263,7 +279,28 @@ async def seed_regulatory_sources():
             "last_polled_at": None,
             "last_success_at": None,
             "consecutive_failures": 0
+        },
+        {
+            "name": "RBI Speeches — LexFlow Horizon",
+            "url": "https://www.rbi.org.in/speeches_rss.xml",
+            "feed_type": "SPEECHES",
+            "poll_interval_minutes": 60,
+            "is_active": True,
+            "last_polled_at": None,
+            "last_success_at": None,
+            "consecutive_failures": 0
+        },
+        {
+            "name": "RBI Publications — LexFlow Horizon",
+            "url": "https://www.rbi.org.in/Publication_rss.xml",
+            "feed_type": "PUBLICATIONS",
+            "poll_interval_minutes": 120,
+            "is_active": True,
+            "last_polled_at": None,
+            "last_success_at": None,
+            "consecutive_failures": 0
         }
     ]
     await db.regulatory_sources.insert_many(sources)
     print(f"✓ Seeded {len(sources)} regulatory sources")
+

@@ -18,11 +18,16 @@ export default function LoginPage() {
     if (isAuthenticated && user) {
       if (user.role === 'BRANCH_MANAGER' && user.branch_lgd_code) {
         router.push(`/branch/${user.branch_lgd_code}/maps`);
+      } else if (user.role === 'AUDITOR') {
+        router.push('/vault');
+      } else if (user.role === 'IT_ENGINEER') {
+        router.push('/it/maps');
       } else {
         router.push('/dashboard');
       }
     }
   }, [isAuthenticated, user, router]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

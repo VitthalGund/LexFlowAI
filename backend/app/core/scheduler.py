@@ -32,8 +32,24 @@ async def poll_all_active_sources():
             print(f"[Scheduler] Unhandled error polling '{source.get('name')}': {e}")
 
 
+async def evaluate_continuous_compliance():
+    """Job function: evaluates compliance policies against system states."""
+    from app.routers.continuum import run_compliance_evaluation
+
+    db = db_connection.db
+    if db is None:
+        return
+
+    try:
+        alerts = await run_compliance_evaluation(db)
+        if alerts:
+            print(f"[Scheduler] Continuous compliance evaluation: {len(alerts)} new drift alert(s) generated.")
+    except Exception as e:
+        print(f"[Scheduler] Error running continuous compliance evaluation: {e}")
+
+
 def start_scheduler():
-    """Register the poll job and start the scheduler."""
+    """Register jobs and start the scheduler."""
     scheduler.add_job(
         poll_all_active_sources,
         "interval",
@@ -41,12 +57,19 @@ def start_scheduler():
         id="regulatory_watcher_poll",
         replace_existing=True
     )
+    scheduler.add_job(
+        evaluate_continuous_compliance,
+        "interval",
+        minutes=5,
+        id="continuous_compliance_check",
+        replace_existing=True
+    )
     scheduler.start()
-    print("[Scheduler] RegulatorWatcher scheduler started (interval: 15 minutes).")
+    print("[Scheduler] RegulatorWatcher & ContinuumGuard scheduler started.")
 
 
 def shutdown_scheduler():
     """Gracefully stop the scheduler."""
     if scheduler.running:
         scheduler.shutdown(wait=False)
-        print("[Scheduler] RegulatorWatcher scheduler stopped.")
+        print("[Scheduler] Scheduler stopped.")

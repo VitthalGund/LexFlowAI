@@ -41,6 +41,9 @@ async def process_evidence_upload(
     risk_score = validation_state["risk_score"]
     vault_status = validation_state["verdict"]
     quarantine_reason = validation_state["rejection_reason"]
+
+    # Extract SentinelVision forensics result
+    forensics_result = validation_state.get("forensics_result", {})
     
     entry = {
         "map_id": map_id,
@@ -57,7 +60,11 @@ async def process_evidence_upload(
         "ocr_verification": ocr_result.model_dump(),
         "vault_status": vault_status,
         "quarantine_reason": quarantine_reason,
-        "amendment_of": None
+        "amendment_of": None,
+        # SentinelVision forensics (advisory signals, stored for audit trail)
+        "forensics_verdict": forensics_result.get("verdict", "CLEAN"),
+        "forensics_signals": forensics_result.get("signals", []),
+        "forensics_score": forensics_result.get("tamper_score", 0.0),
     }
     
     # Insert entry

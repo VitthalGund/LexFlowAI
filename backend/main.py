@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.core.database import connect_to_mongo, close_mongo_connection, db_connection
-from app.routers import circulars, maps, evidence, telemetry, branches, dashboard, auth, remediation, risk_review, monitoring
+from app.routers import circulars, maps, evidence, telemetry, branches, dashboard, auth, remediation, risk_review, monitoring, horizon, continuum
 from app.core.scheduler import start_scheduler, shutdown_scheduler
 import asyncio
 
@@ -63,6 +63,8 @@ app.include_router(dashboard.router)
 app.include_router(remediation.router)
 app.include_router(risk_review.router)
 app.include_router(monitoring.router)
+app.include_router(horizon.router)
+app.include_router(continuum.router)
 
 @app.get("/health")
 async def health():

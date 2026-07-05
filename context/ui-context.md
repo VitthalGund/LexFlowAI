@@ -103,6 +103,12 @@ SUBMITTED    → amber pill    (#D46A00 bg, white text)
 VERIFIED     → green pill    (#10A868 bg, white text)
 QUARANTINED  → red pill      (#C41515 bg, white text)
 OVERDUE      → dark red pill (#921010 bg, white text)
+
+SentinelVision Forensics Badges:
+CLEAN            → green badge   (#E6F4EA bg, #137333 text)
+SUSPICIOUS       → orange badge  (#FEF7E0 bg, #B06000 text)
+LIKELY_TAMPERED  → red badge     (#FCE8E6 bg, #C5221F text, animated pulse)
+
 ```
 
 #### Risk Score Indicator
@@ -142,6 +148,17 @@ OVERDUE      → dark red pill (#921010 bg, white text)
 │                                             │
 │ [View Details] [Translation: ಕನ್ನಡ]         │
 └─────────────────────────────────────────────┘
+
+#### Anticipatory MAP Blueprint Card (LexFlow Horizon)
+- Rendered with a **dashed border** (`border-dashed border-2 border-amber-300`)
+- Includes an amber "Anticipatory" icon/badge next to the ID Ref
+- Displays warning banner: *"Anticipatory Blueprint Mode: This action point was generated proactively via LexFlow Horizon scanning. It is advisory for risk pre-mitigation and policy drafting — not a binding RBI circular instruction."*
+
+#### ContinuumGuard ComplianceDriftStrip Component
+- Evaluates live telemetry values against Rego constraints.
+- Shows historical telemetry log rows with status (PASS/FAIL) and timestamp.
+- Highlighted red alert boxes for active drifts with an "Acknowledge Drift" button for compliance officers.
+
 ```
 
 ---
@@ -182,14 +199,16 @@ OVERDUE      → dark red pill (#921010 bg, white text)
 | `/circulars/new` | Ingest Circular | COMPLIANCE_OFFICER |
 | `/circulars/[id]` | Circular Detail + MAPs | COMPLIANCE_OFFICER |
 | `/maps` | MAP List (filterable) | COMPLIANCE_OFFICER, REGIONAL_HEAD |
-| `/maps/[id]` | MAP Detail | All roles |
+| `/maps/[id]` | MAP Detail (with Drift tab)| All roles |
 | `/branch` | Branch Dashboard | BRANCH_MANAGER |
 | `/branch/[lgd]/maps` | Branch MAP list | BRANCH_MANAGER |
 | `/branch/[lgd]/submit/[map_id]` | Evidence Submission | BRANCH_MANAGER |
-| `/vault` | Evidence Vault | AUDITOR, COMPLIANCE_OFFICER |
+| `/vault` | Evidence Vault + Forensics| AUDITOR, COMPLIANCE_OFFICER |
 | `/vault/verify` | Hash Verification | AUDITOR |
 | `/risk-review` | Behavioral Risk Queue | COMPLIANCE_OFFICER |
 | `/it/maps` | IT Remediation View | IT_ENGINEER |
+| `/horizon` | Horizon Foresight Scanner | COMPLIANCE_OFFICER, REGIONAL_HEAD |
+
 
 ---
 

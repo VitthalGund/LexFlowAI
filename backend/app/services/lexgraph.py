@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timezone, timedelta
-from typing import TypedDict, List, Dict, Any, Literal
+from typing import TypedDict, List, Dict, Any, Literal, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import ValidationError
 from app.core.config import settings
@@ -8,6 +8,7 @@ from app.models.map import MAPSchema
 from app.services.lgd import get_branches_for_scope
 from app.services.translation import translate_text
 from app.services.remediation_forge import generate_remediation_payload
+from app.prompts.red_team import RED_TEAM_SYSTEM_PROMPT
 from langgraph.graph import StateGraph, END
 
 # --- Penalty Precedent Tagging Helper ---
@@ -47,6 +48,7 @@ class ComplianceState(TypedDict):
     iteration_count: int
     status: str
     decision_log: List[Dict[str, Any]]  # Glass-Box Ledger trace
+    red_team_critique: str  # Red-Team Auditor critique text (empty string if no issues)
 
 # In-memory mock response for robust demo verification (failsafe)
 DEMO_MAPS_EXTRACTION = [
@@ -82,42 +84,23 @@ DEMO_MAPS_EXTRACTION = [
     }
 ]
 
-async def call_llm_for_extraction(circular_text: str) -> List[Dict[str, Any]]:
-    # Only fall back to demo maps if literally no LLM is configured or all fail
-    prompt = f"""You are a regulatory compliance expert for Indian banking.
-Analyze the following RBI circular and extract ALL compliance requirements.
-For each requirement, you MUST provide a JSON object with:
-- title: Short title (max 10 words)
-- description: Full description of what must be done
-- kpi: SPECIFIC, MEASURABLE success criterion (not vague - must be verifiable)
-- deadline_days: Number of days from circular date (integer)
-- department: One of [IT, OPERATIONS, RISK, HR, FINANCE, AUDIT]
-- evidence_type: One of [POLICY_DOC, LOG_FILE, SCREENSHOT, REPORT, CERTIFICATE]
-- geographic_scope: One of [NATIONAL, STATE, DISTRICT, BRANCH]
-- target_states: List of state codes if scope is STATE (e.g. ["29"] for Karnataka)
+def _clean_json_text(text: str):
+    """Strip markdown fences and parse JSON from LLM response text."""
+    text = text.strip()
+    if text.startswith("```"):
+        parts = text.split("\n", 1)
+        if len(parts) > 1:
+            text = parts[1].rsplit("```", 1)[0].strip()
+    return json.loads(text)
 
-Return ONLY a valid JSON array. Do not include markdown codeblocks.
 
-CIRCULAR TEXT:
-{circular_text}
-"""
-
-    def clean_json(text: str) -> List[Dict]:
-        text = text.strip()
-        if text.startswith("```"):
-            parts = text.split("\n", 1)
-            if len(parts) > 1:
-                text = parts[1].rsplit("```", 1)[0].strip()
-        parsed = json.loads(text)
-        if isinstance(parsed, dict):
-            for k, v in parsed.items():
-                if isinstance(v, list):
-                    return v
-            return [parsed]
-        return parsed
-
+async def _call_llm_raw(prompt: str, timeout: float = 30.0) -> Optional[str]:
+    """
+    Shared LLM caller: Gemini → Ollama → None.
+    Returns raw text from the model, or None if all paths fail.
+    """
     import httpx
-    
+
     # Mode auto or online + Gemini key
     if settings.LLM_MODE in ("auto", "online") and settings.GEMINI_API_KEY:
         try:
@@ -128,12 +111,11 @@ CIRCULAR TEXT:
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {"temperature": 0.1, "response_mime_type": "application/json"}
                     },
-                    timeout=30.0
+                    timeout=timeout
                 )
                 if response.status_code == 200:
                     data = response.json()
-                    content = data["candidates"][0]["content"]["parts"][0]["text"]
-                    return clean_json(content)
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
                 else:
                     print(f"Gemini API Error: {response.text}")
         except Exception as e:
@@ -155,11 +137,46 @@ CIRCULAR TEXT:
                 )
                 if response.status_code == 200:
                     data = response.json()
-                    content = data["choices"][0]["message"]["content"]
-                    return clean_json(content)
+                    return data["choices"][0]["message"]["content"]
         except Exception as e:
             print(f"Error calling Ollama: {e}")
-            
+
+    return None
+
+
+async def call_llm_for_extraction(circular_text: str) -> List[Dict[str, Any]]:
+    """Call LLM to extract MAPs from circular text. Falls back to demo maps if all LLMs fail."""
+    prompt = f"""You are a regulatory compliance expert for Indian banking.
+Analyze the following RBI circular and extract ALL compliance requirements.
+For each requirement, you MUST provide a JSON object with:
+- title: Short title (max 10 words)
+- description: Full description of what must be done
+- kpi: SPECIFIC, MEASURABLE success criterion (not vague - must be verifiable)
+- deadline_days: Number of days from circular date (integer)
+- department: One of [IT, OPERATIONS, RISK, HR, FINANCE, AUDIT]
+- evidence_type: One of [POLICY_DOC, LOG_FILE, SCREENSHOT, REPORT, CERTIFICATE]
+- geographic_scope: One of [NATIONAL, STATE, DISTRICT, BRANCH]
+- target_states: List of state codes if scope is STATE (e.g. ["29"] for Karnataka)
+
+Return ONLY a valid JSON array. Do not include markdown codeblocks.
+
+CIRCULAR TEXT:
+{circular_text}
+"""
+    raw = await _call_llm_raw(prompt)
+    if raw:
+        try:
+            parsed = _clean_json_text(raw)
+            if isinstance(parsed, list):
+                return parsed
+            if isinstance(parsed, dict):
+                for k, v in parsed.items():
+                    if isinstance(v, list):
+                        return v
+                return [parsed]
+        except Exception as e:
+            print(f"Error parsing LLM extraction response: {e}")
+
     # Absolute fallback if all real LLMs fail
     return DEMO_MAPS_EXTRACTION
 
@@ -190,10 +207,13 @@ async def validation_node(state: ComplianceState) -> ComplianceState:
     
     for raw_map in state["raw_maps"]:
         try:
+            if not isinstance(raw_map, dict):
+                raise TypeError(f"Expected a mapping for MAP, got {type(raw_map).__name__}")
             val_map = MAPSchema(**raw_map)
             validated.append(val_map.model_dump())
-        except ValidationError as e:
-            errors.append(f"MAP '{raw_map.get('title', 'UNKNOWN')}': {str(e)}")
+        except (ValidationError, TypeError, AttributeError) as e:
+            title = raw_map.get('title', 'UNKNOWN') if isinstance(raw_map, dict) else str(raw_map)[:50]
+            errors.append(f"MAP '{title}': {str(e)}")
 
     log_entry = {
         "graph_name": "compliance_extraction",
@@ -212,11 +232,80 @@ async def validation_node(state: ComplianceState) -> ComplianceState:
         "decision_log": state.get("decision_log", []) + [log_entry]
     }
 
-def should_loop_or_proceed(state: ComplianceState) -> Literal["extract", "route"]:
+def should_loop_or_proceed(state: ComplianceState) -> Literal["extract", "red_team"]:
+    """After validation: loop back to extract on errors, else proceed to red_team review."""
     has_errors = len(state["validation_errors"]) > 0
     max_reached = state["iteration_count"] >= 3
-    
+
     if has_errors and not max_reached:
+        return "extract"
+    return "red_team"
+
+
+async def red_team_node(state: ComplianceState) -> ComplianceState:
+    """
+    Red-Team Auditor: critique-only pass over validated MAPs.
+    Has no rewrite power — only flags issues for the conditional edge to act on.
+    High-severity findings loop back to extract (within shared iteration_count cap).
+    """
+    maps_text = json.dumps(state["validated_maps"], indent=2, default=str)
+    prompt = RED_TEAM_SYSTEM_PROMPT + f"\n\nMAPs to review:\n{maps_text}"
+
+    critique_data = {"has_issue": False, "severity": "low", "critique": "", "suggestions": []}
+    raw = await _call_llm_raw(prompt, timeout=30.0)
+    if raw:
+        try:
+            parsed = _clean_json_text(raw)
+            if isinstance(parsed, dict):
+                critique_data = parsed
+        except Exception as e:
+            print(f"Red-team node parse error: {e}")
+
+    log_entry = {
+        "graph_name": "compliance_extraction",
+        "node_name": "red_team",
+        "iteration": state["iteration_count"],
+        "input_summary": f"Red-team reviewing {len(state['validated_maps'])} MAP(s)",
+        "output_summary": f"Severity: {critique_data.get('severity', 'low')}, has_issue: {critique_data.get('has_issue', False)}",
+        "validation_errors": ([critique_data.get("critique", "")] if critique_data.get("has_issue") else []),
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+    return {
+        **state,
+        "red_team_critique": critique_data.get("critique", ""),
+        "status": "red_team_reviewed",
+        "decision_log": state.get("decision_log", []) + [log_entry]
+    }
+
+
+def should_loop_after_red_team(state: ComplianceState) -> Literal["extract", "route"]:
+    """
+    After red-team review: only HIGH severity issues loop back to extract.
+    SHARED iteration counter (iteration_count) — cap at 3 total across all loops.
+    """
+    # Always respect the shared iteration cap
+    if state["iteration_count"] >= 3:
+        return "route"
+
+    critique = state.get("red_team_critique", "")
+    if not critique:
+        return "route"
+
+    # Only high-severity issues trigger a loop-back to extraction
+    severity = ""
+    try:
+        # Re-parse from the last red_team log entry if available
+        red_team_logs = [e for e in state.get("decision_log", []) if e.get("node_name") == "red_team"]
+        if red_team_logs:
+            last_log = red_team_logs[-1]
+            output = last_log.get("output_summary", "")
+            if "Severity: high" in output:
+                severity = "high"
+    except Exception:
+        pass
+
+    if severity == "high":
         return "extract"
     return "route"
 
@@ -309,30 +398,36 @@ async def translation_node_action(state: ComplianceState) -> ComplianceState:
 
 def build_compliance_graph(db: AsyncIOMotorDatabase):
     graph = StateGraph(ComplianceState)
-    
+
     graph.add_node("extract", extraction_node)
     graph.add_node("validate", validation_node)
-    
+    graph.add_node("red_team", red_team_node)
+
     # Needs db client
     async def route_step(state: ComplianceState) -> ComplianceState:
         action = await routing_node_creator(db)
         return await action(state)
-        
+
     graph.add_node("route", route_step)
+    graph.add_node("remediate", remediation_node_action)
     graph.add_node("translate", translation_node_action)
-    
+
     graph.set_entry_point("extract")
     graph.add_edge("extract", "validate")
     graph.add_conditional_edges(
         "validate",
         should_loop_or_proceed,
+        {"extract": "extract", "red_team": "red_team"}
+    )
+    graph.add_conditional_edges(
+        "red_team",
+        should_loop_after_red_team,
         {"extract": "extract", "route": "route"}
     )
-    graph.add_node("remediate", remediation_node_action)
     graph.add_edge("route", "remediate")
     graph.add_edge("remediate", "translate")
     graph.add_edge("translate", END)
-    
+
     return graph.compile()
 
 async def run_compliance_pipeline(db: AsyncIOMotorDatabase, circular_id: str, circular_text: str) -> List[Dict]:
@@ -346,7 +441,8 @@ async def run_compliance_pipeline(db: AsyncIOMotorDatabase, circular_id: str, ci
         "remediation_payloads": [],
         "iteration_count": 0,
         "status": "extracting",
-        "decision_log": []  # Glass-Box Ledger
+        "decision_log": [],  # Glass-Box Ledger
+        "red_team_critique": ""  # Red-Team Auditor output
     }
     
     result = await graph.ainvoke(initial_state)

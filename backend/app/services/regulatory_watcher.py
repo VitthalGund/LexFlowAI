@@ -41,7 +41,7 @@ def extract_external_id(link: str) -> Optional[str]:
     """
     Parse the 'Id' query parameter from an RBI notification link.
     e.g. 'http://www.rbi.org.in/scripts/NotificationUser.aspx?Id=13462&Mode=0' → '13462'
-    Returns None if not parseable.
+    Returns an MD5 hash of the link if no Id parameter can be parsed.
     """
     try:
         parsed = urlparse(link)
@@ -52,7 +52,13 @@ def extract_external_id(link: str) -> Optional[str]:
                 return params[key][0]
     except Exception:
         pass
+    
+    # Fallback to MD5 hash of the URL if no parameter ID exists (common for speeches, publications, direct PDFs)
+    if link:
+        import hashlib
+        return hashlib.md5(link.encode("utf-8")).hexdigest()
     return None
+
 
 
 async def fetch_feed(url: str) -> list[dict]:
@@ -163,6 +169,7 @@ async def poll_source(db: AsyncIOMotorDatabase, source: dict) -> dict:
     items_new = 0
     items_ingested = 0
     items_skipped = 0
+    feed_type = source.get("feed_type", "NOTIFICATIONS")
 
     for entry in entries:
         external_id = extract_external_id(entry["link"])
@@ -197,58 +204,108 @@ async def poll_source(db: AsyncIOMotorDatabase, source: dict) -> dict:
         notif_id = notif_result.inserted_id
         items_new += 1
 
-        # Triage
-        try:
-            triage = await classify_relevance(entry["title"], clean_text)
-        except Exception as te:
-            print(f"[RegulatorWatcher] Triage error for {external_id}: {te}")
-            triage = {"is_actionable": True, "confidence": 0.3, "reason": f"Triage error: {te}"}
-
-        # Update seen_notification with triage result
-        await db.seen_notifications.update_one(
-            {"_id": notif_id},
-            {"$set": {
-                "triage_confidence": triage.get("confidence"),
-                "triage_reason": triage.get("reason")
-            }}
-        )
-
-        # Auto-ingest if high confidence actionable
-        if triage.get("is_actionable") and triage.get("confidence", 0) >= AUTO_INGEST_THRESHOLD:
+        if feed_type in ("SPEECHES", "PUBLICATIONS"):
+            # Horizon Scanning Path
+            from app.services.triage import extract_horizon_signal
             try:
-                circular_number = derive_circular_number(entry["title"], clean_text, external_id)
-                result = await create_and_process_circular(
-                    db=db,
-                    circular_number=circular_number,
-                    title=entry["title"],
-                    raw_text=clean_text,
-                    issued_date=entry["pub_date"]
-                )
-                await db.seen_notifications.update_one(
-                    {"_id": notif_id},
-                    {"$set": {
-                        "relevance_status": "AUTO_INGESTED",
-                        "circular_id": result["circular_id"]
-                    }}
-                )
-                items_ingested += 1
-                print(f"[RegulatorWatcher] Auto-ingested: {entry['title'][:60]} → {result['circular_id']}")
-            except ValueError as ve:
-                # Already exists — mark as such
-                await db.seen_notifications.update_one(
-                    {"_id": notif_id},
-                    {"$set": {"relevance_status": "MANUALLY_INGESTED"}}
-                )
-                print(f"[RegulatorWatcher] Already ingested: {ve}")
-            except Exception as ie:
-                print(f"[RegulatorWatcher] Auto-ingest failed for {external_id}: {ie}")
-                # Leave as PENDING_TRIAGE so compliance officer can manually handle
+                horizon = await extract_horizon_signal(entry["title"], clean_text)
+            except Exception as he:
+                print(f"[RegulatorWatcher] Horizon triage error: {he}")
+                horizon = {
+                    "is_signal": False,
+                    "theme": "Unknown",
+                    "confidence": 0.0,
+                    "rationale": f"Error: {he}",
+                    "estimated_action_window_days": None
+                }
+            
+            # Update seen_notification with triage result
+            await db.seen_notifications.update_one(
+                {"_id": notif_id},
+                {"$set": {
+                    "relevance_status": "AUTO_INGESTED" if horizon.get("is_signal") else "MUTED",
+                    "triage_confidence": horizon.get("confidence"),
+                    "triage_reason": horizon.get("rationale")
+                }}
+            )
+
+            if horizon.get("is_signal"):
+                # Dedup check for horizon signals
+                existing_signal = await db.horizon_signals.find_one({"source_item_id": external_id})
+                if not existing_signal:
+                    signal_doc = {
+                        "source_item_id": external_id,
+                        "source_name": source.get("name", ""),
+                        "feed_type": feed_type,
+                        "title": entry["title"],
+                        "link": entry["link"],
+                        "theme": horizon.get("theme", "Unknown"),
+                        "confidence": horizon.get("confidence", 0.0),
+                        "rationale": horizon.get("rationale", ""),
+                        "estimated_action_window_days": horizon.get("estimated_action_window_days"),
+                        "detected_at": datetime.now(timezone.utc),
+                        "status": "NEW",
+                        "prep_map_id": None
+                    }
+                    await db.horizon_signals.insert_one(signal_doc)
+                    items_ingested += 1
+                    print(f"[RegulatorWatcher] Extracted Horizon Signal: {entry['title'][:60]} -> Theme: {horizon.get('theme')}")
+                else:
+                    print(f"[RegulatorWatcher] Horizon Signal already exists: {external_id}")
+            else:
+                print(f"[RegulatorWatcher] Muted Speeches/Publications entry: {entry['title'][:60]}")
         else:
-            print(f"[RegulatorWatcher] Queued for triage: {entry['title'][:60]} (confidence={triage.get('confidence', 0):.2f})")
+            # Standard Notifications/Press Releases Path
+            try:
+                triage = await classify_relevance(entry["title"], clean_text)
+            except Exception as te:
+                print(f"[RegulatorWatcher] Triage error for {external_id}: {te}")
+                triage = {"is_actionable": True, "confidence": 0.3, "reason": f"Triage error: {te}"}
+
+            # Update seen_notification with triage result
+            await db.seen_notifications.update_one(
+                {"_id": notif_id},
+                {"$set": {
+                    "triage_confidence": triage.get("confidence"),
+                    "triage_reason": triage.get("reason")
+                }}
+            )
+
+            # Auto-ingest if high confidence actionable
+            if triage.get("is_actionable") and triage.get("confidence", 0) >= AUTO_INGEST_THRESHOLD:
+                try:
+                    circular_number = derive_circular_number(entry["title"], clean_text, external_id)
+                    result = await create_and_process_circular(
+                        db=db,
+                        circular_number=circular_number,
+                        title=entry["title"],
+                        raw_text=clean_text,
+                        issued_date=entry["pub_date"]
+                    )
+                    await db.seen_notifications.update_one(
+                        {"_id": notif_id},
+                        {"$set": {
+                            "relevance_status": "AUTO_INGESTED",
+                            "circular_id": result["circular_id"]
+                        }}
+                    )
+                    items_ingested += 1
+                    print(f"[RegulatorWatcher] Auto-ingested: {entry['title'][:60]} → {result['circular_id']}")
+                except ValueError as ve:
+                    # Already exists — mark as such
+                    await db.seen_notifications.update_one(
+                        {"_id": notif_id},
+                        {"$set": {"relevance_status": "MANUALLY_INGESTED"}}
+                    )
+                    print(f"[RegulatorWatcher] Already ingested: {ve}")
+                except Exception as ie:
+                    print(f"[RegulatorWatcher] Auto-ingest failed for {external_id}: {ie}")
+            else:
+                print(f"[RegulatorWatcher] Queued for triage: {entry['title'][:60]} (confidence={triage.get('confidence', 0):.2f})")
 
     # Finalize run record
     finished_at = datetime.now(timezone.utc)
-    final_status = "SUCCESS" if items_fetched > 0 else "PARTIAL"
+    final_status = "SUCCESS"
     await db.monitoring_runs.update_one(
         {"_id": run_id},
         {"$set": {

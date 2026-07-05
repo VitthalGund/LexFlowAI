@@ -27,6 +27,9 @@ interface EvidenceLedgerEntry {
   uploaded_at: string;
   behavioral_risk_score: number;
   vault_status: string;
+  forensics_verdict?: 'CLEAN' | 'SUSPICIOUS' | 'LIKELY_TAMPERED';
+  forensics_signals?: string[];
+  forensics_score?: number;
 }
 
 interface VerificationResult {
@@ -171,6 +174,37 @@ export default function TrustVaultPage() {
                     <Fingerprint className="h-4 w-4 shrink-0 text-success-500" />
                     <span>SHA-256: {item.sha256_hash}</span>
                   </div>
+
+                  {/* Forensics Verdict Badge */}
+                  {item.forensics_verdict && (
+                    <div className="flex flex-col gap-1.5 p-2 bg-slate-50 rounded border border-slate-100">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${
+                          item.forensics_verdict === 'CLEAN' 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                            : item.forensics_verdict === 'SUSPICIOUS'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
+                            : 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+                        }`}>
+                          <span>SentinelVision: {item.forensics_verdict}</span>
+                        </span>
+                        {item.forensics_score !== undefined && (
+                          <span className="text-[9px] font-mono text-slate-400">Score: {item.forensics_score}</span>
+                        )}
+                      </div>
+                      {item.forensics_signals && item.forensics_signals.length > 0 && (
+                        <div className="space-y-0.5 pt-1 border-t border-slate-200/50">
+                          {item.forensics_signals.map((sig, sidx) => (
+                            <p key={sidx} className="text-[9px] text-slate-500 font-medium leading-normal flex items-start gap-1">
+                              <span className="text-amber-500 shrink-0">•</span>
+                              <span>{sig}</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
 
                   <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold pt-1 border-t border-slate-50">
                     <span>Uploader: {item.uploader_name}</span>
