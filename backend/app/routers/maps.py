@@ -85,3 +85,38 @@ async def list_branch_maps(
         formatted_maps.append(m)
         
     return formatted_maps
+
+
+@router.get("/{map_id}/decision-log", response_model=List[dict])
+async def get_map_decision_log(
+    map_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Glass-Box Ledger: return the AI reasoning trace for the circular pipeline
+    that generated this MAP. Identified by circular_id stored in the MAP document.
+    """
+    from bson import ObjectId as ObjId
+    try:
+        m = await db.maps.find_one({"_id": map_id})
+        if not m:
+            m = await db.maps.find_one({"_id": ObjId(map_id)})
+    except Exception:
+        pass
+
+    if not m:
+        raise HTTPException(status_code=404, detail="MAP not found")
+
+    circular_id = m.get("circular_id")
+    if not circular_id:
+        return []
+
+    logs = await db.agent_decision_log.find(
+        {"circular_id": circular_id}
+    ).sort("timestamp", 1).to_list(length=200)
+
+    for log in logs:
+        log["id"] = str(log["_id"])
+        del log["_id"]
+    return logs

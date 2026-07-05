@@ -222,8 +222,48 @@ async def seed_demo_data():
         {"$set": {"status": "QUARANTINED", "behavioral_risk_score": 0.87}}
     )
     
-    print("✓ Seeded evidence vault scenarios")
     print("\n🎉 Demo data seed complete!")
-    
+
 if __name__ == "__main__":
     asyncio.run(seed_demo_data())
+
+
+async def seed_regulatory_sources():
+    """
+    Idempotent seed: inserts the RBI notifications RSS feed as a regulatory source
+    if the regulatory_sources collection is empty.
+    Uses the db_connection singleton (not a new Motor client).
+    """
+    from app.core.database import db_connection
+    db = db_connection.db
+    if db is None:
+        return
+
+    count = await db.regulatory_sources.count_documents({})
+    if count > 0:
+        return
+
+    sources = [
+        {
+            "name": "RBI Notifications & Circulars",
+            "url": "https://www.rbi.org.in/notifications_rss.xml",
+            "feed_type": "NOTIFICATIONS",
+            "poll_interval_minutes": 15,
+            "is_active": True,
+            "last_polled_at": None,
+            "last_success_at": None,
+            "consecutive_failures": 0
+        },
+        {
+            "name": "RBI Press Releases (Enforcement Actions)",
+            "url": "https://www.rbi.org.in/pressreleases_rss.xml",
+            "feed_type": "PRESS_RELEASES",
+            "poll_interval_minutes": 60,
+            "is_active": True,
+            "last_polled_at": None,
+            "last_success_at": None,
+            "consecutive_failures": 0
+        }
+    ]
+    await db.regulatory_sources.insert_many(sources)
+    print(f"✓ Seeded {len(sources)} regulatory sources")

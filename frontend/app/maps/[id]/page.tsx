@@ -11,7 +11,11 @@ import {
   Fingerprint, 
   CheckCircle,
   Globe2,
-  ListTodo
+  ListTodo,
+  ChevronDown,
+  ChevronRight,
+  Bot,
+  AlertTriangle
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -31,6 +35,20 @@ interface MAPDetail {
   translations: Record<string, string>;
   evidence_hash?: string;
   behavioral_risk_score?: number;
+  penalty_category?: string;
+  penalty_precedent_display?: string;
+  penalty_precedent_entity?: string;
+}
+
+interface DecisionLogEntry {
+  id: string;
+  graph_name: string;
+  node_name: string;
+  iteration: number;
+  input_summary: string;
+  output_summary: string;
+  validation_errors: string[];
+  timestamp: string;
 }
 
 interface Branch {
@@ -66,6 +84,8 @@ export default function MapDetailPage({ params }: PageProps) {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [ledger, setLedger] = useState<EvidenceEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [decisionLog, setDecisionLog] = useState<DecisionLogEntry[]>([]);
+  const [showDecisionLog, setShowDecisionLog] = useState(false);
   
   // Translation tab state
   const [activeLang, setActiveLang] = useState('en');
@@ -82,6 +102,13 @@ export default function MapDetailPage({ params }: PageProps) {
         setMapDetail(mapRes.data);
         setBranches(branchesRes.data);
         setLedger(ledgerRes.data);
+        // Fetch Glass-Box Ledger (non-blocking — may return empty for demo data)
+        try {
+          const logRes = await api.get(`/api/v1/maps/${mapId}/decision-log`);
+          setDecisionLog(logRes.data);
+        } catch {
+          // Decision log not available — not a critical failure
+        }
       } catch (err) {
         console.error('Failed to load MAP details:', err);
       } finally {
@@ -293,6 +320,85 @@ export default function MapDetailPage({ params }: PageProps) {
           </div>
         </Card>
       </div>
+
+      {/* Penalty Precedent Warning */}
+      {mapDetail.penalty_category && mapDetail.penalty_precedent_display && (
+        <Card>
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-slate-800">Penalty Precedent Warning</p>
+              <p className="text-xs text-slate-600 mt-1">
+                Non-compliance with <span className="font-semibold">{mapDetail.penalty_category.replace('_', ' ')}</span> requirements
+                has cost regulated entities up to <span className="font-bold text-red-700">{mapDetail.penalty_precedent_display}</span> in recent RBI enforcement actions
+                {mapDetail.penalty_precedent_entity ? ` (e.g., ${mapDetail.penalty_precedent_entity})` : ''}.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Glass-Box Ledger — AI Decision Trace */}
+      <Card>
+        <button
+          onClick={() => setShowDecisionLog(!showDecisionLog)}
+          className="w-full flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-primary-600" />
+            <span className="text-sm font-bold text-slate-800">Why did the AI decide this?</span>
+            {decisionLog.length > 0 && (
+              <span className="text-[10px] bg-primary-50 border border-primary-200 text-primary-700 font-bold px-2 py-0.5 rounded-full">
+                {decisionLog.length} steps
+              </span>
+            )}
+          </div>
+          {showDecisionLog
+            ? <ChevronDown className="h-4 w-4 text-slate-400" />
+            : <ChevronRight className="h-4 w-4 text-slate-400" />
+          }
+        </button>
+
+        {showDecisionLog && (
+          <div className="mt-4 space-y-3">
+            {decisionLog.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No decision log available for this MAP. Logs are generated for newly ingested circulars.</p>
+            ) : (
+              decisionLog.map((entry, idx) => (
+                <div key={entry.id} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                      entry.node_name === 'pipeline_complete' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                      : entry.validation_errors?.length > 0 ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                      : 'bg-primary-50 text-primary-700 border border-primary-200'
+                    }`}>
+                      {idx + 1}
+                    </div>
+                    {idx < decisionLog.length - 1 && (
+                      <div className="w-px flex-1 bg-slate-100 mt-1" />
+                    )}
+                  </div>
+                  <div className="pb-4 flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-xs font-bold text-slate-700 font-mono">{entry.node_name}</span>
+                      <span className="text-[9px] text-slate-400">iter {entry.iteration}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">In: {entry.input_summary}</p>
+                    <p className="text-[11px] text-slate-700 mt-0.5 font-medium">Out: {entry.output_summary}</p>
+                    {entry.validation_errors?.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        {entry.validation_errors.slice(0, 3).map((e, i) => (
+                          <p key={i} className="text-[10px] text-orange-600 bg-orange-50 px-2 py-0.5 rounded">{e}</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </Card>
 
     </div>
   );

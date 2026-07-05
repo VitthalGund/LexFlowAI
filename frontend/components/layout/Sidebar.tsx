@@ -14,7 +14,8 @@ import {
   LogOut,
   Building,
   UserCheck,
-  X
+  X,
+  Radio
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -29,6 +30,7 @@ export function Sidebar({ onClose }: SidebarProps = {}) {
   const menuItems = [
     { name: t('Dashboard'), href: '/dashboard', icon: LayoutDashboard, roles: ['COMPLIANCE_OFFICER', 'REGIONAL_HEAD'] },
     { name: t('Ingest Circular'), href: '/circulars/new', icon: FilePlus2, roles: ['COMPLIANCE_OFFICER'] },
+    { name: t('Regulatory Sentinel'), href: '/monitoring', icon: Radio, roles: ['COMPLIANCE_OFFICER'] },
     { name: t('MAP Management'), href: '/maps', icon: ListTodo, roles: ['COMPLIANCE_OFFICER', 'REGIONAL_HEAD'] },
     { name: t('TrustVault Ledger'), href: '/vault', icon: Database, roles: ['COMPLIANCE_OFFICER', 'AUDITOR'] },
     { name: t('Risk Review Queue'), href: '/risk-review', icon: ShieldAlert, roles: ['COMPLIANCE_OFFICER'] },

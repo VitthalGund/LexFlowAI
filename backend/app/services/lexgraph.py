@@ -10,6 +10,32 @@ from app.services.translation import translate_text
 from app.services.remediation_forge import generate_remediation_payload
 from langgraph.graph import StateGraph, END
 
+# --- Penalty Precedent Tagging Helper ---
+
+def _tag_penalty_category(map_data: Dict[str, Any]) -> str | None:
+    """
+    Infer a penalty category from MAP title/description/department.
+    Returns a category string or None if no match.
+    """
+    from app.utils.penalty_precedents_seed import DEPARTMENT_CATEGORY_MAP, KEYWORD_CATEGORY_MAP
+    title = (map_data.get("title") or "").lower()
+    desc = (map_data.get("description") or "").lower()
+    combined = title + " " + desc
+
+    # Keyword matching (higher precision first)
+    for keyword, category in KEYWORD_CATEGORY_MAP.items():
+        if keyword in combined:
+            return category
+
+    # Department fallback
+    dept = map_data.get("department", "")
+    categories = DEPARTMENT_CATEGORY_MAP.get(dept, [])
+    if categories:
+        return categories[0]
+
+    return None
+
+
 # Define LangGraph Compliance State
 class ComplianceState(TypedDict):
     circular_id: str
@@ -20,6 +46,7 @@ class ComplianceState(TypedDict):
     remediation_payloads: List[Dict[str, Any]]
     iteration_count: int
     status: str
+    decision_log: List[Dict[str, Any]]  # Glass-Box Ledger trace
 
 # In-memory mock response for robust demo verification (failsafe)
 DEMO_MAPS_EXTRACTION = [
@@ -140,11 +167,21 @@ CIRCULAR TEXT:
 
 async def extraction_node(state: ComplianceState) -> ComplianceState:
     raw_maps = await call_llm_for_extraction(state["circular_text"])
+    log_entry = {
+        "graph_name": "compliance_extraction",
+        "node_name": "extract",
+        "iteration": state["iteration_count"] + 1,
+        "input_summary": f"Circular text ({len(state['circular_text'])} chars)",
+        "output_summary": f"Extracted {len(raw_maps)} raw MAP(s)",
+        "validation_errors": [],
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
     return {
         **state,
         "raw_maps": raw_maps,
         "iteration_count": state["iteration_count"] + 1,
-        "status": "validating"
+        "status": "validating",
+        "decision_log": state.get("decision_log", []) + [log_entry]
     }
 
 async def validation_node(state: ComplianceState) -> ComplianceState:
@@ -153,17 +190,26 @@ async def validation_node(state: ComplianceState) -> ComplianceState:
     
     for raw_map in state["raw_maps"]:
         try:
-            # Map validation
             val_map = MAPSchema(**raw_map)
             validated.append(val_map.model_dump())
         except ValidationError as e:
             errors.append(f"MAP '{raw_map.get('title', 'UNKNOWN')}': {str(e)}")
-            
+
+    log_entry = {
+        "graph_name": "compliance_extraction",
+        "node_name": "validate",
+        "iteration": state["iteration_count"],
+        "input_summary": f"{len(state['raw_maps'])} raw MAP(s)",
+        "output_summary": f"{len(validated)} valid, {len(errors)} error(s)",
+        "validation_errors": errors,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
     return {
         **state,
         "validated_maps": validated,
         "validation_errors": errors,
-        "status": "validated"
+        "status": "validated",
+        "decision_log": state.get("decision_log", []) + [log_entry]
     }
 
 def should_loop_or_proceed(state: ComplianceState) -> Literal["extract", "route"]:
@@ -267,7 +313,8 @@ async def run_compliance_pipeline(db: AsyncIOMotorDatabase, circular_id: str, ci
         "validation_errors": [],
         "remediation_payloads": [],
         "iteration_count": 0,
-        "status": "extracting"
+        "status": "extracting",
+        "decision_log": []  # Glass-Box Ledger
     }
     
     result = await graph.ainvoke(initial_state)
@@ -301,17 +348,8 @@ async def run_compliance_pipeline(db: AsyncIOMotorDatabase, circular_id: str, ci
             "remediation_payload": None
         }
         
-        # Attach remediation payload if IT
-        if map_data["department"] == "IT":
-            # Match payload based on index or title (simplified for hackathon: grab first IT payload not used, or match by title)
-            for p in result.get("remediation_payloads", []):
-                # Simple matching by title or just use the ordered list
-                # For safety, let's just use the fact that they are generated in order of IT maps
-                pass
-                
-        # Better approach: map them properly
+        # Attach remediation payload for IT MAPs (match by in-order index)
         if map_data["department"] == "IT" and result.get("remediation_payloads"):
-            # We generated payloads for IT maps in order
             it_maps = [m for m in result["validated_maps"] if m.get("department") == "IT"]
             try:
                 it_index = it_maps.index(map_data)
@@ -319,10 +357,50 @@ async def run_compliance_pipeline(db: AsyncIOMotorDatabase, circular_id: str, ci
             except (ValueError, IndexError):
                 pass
 
+        # --- Penalty Precedent Engine: auto-tag penalty category ---
+        penalty_category = _tag_penalty_category(map_data)
+        if penalty_category:
+            map_doc["penalty_category"] = penalty_category
+            # Lookup max penalty for this category for the risk warning
+            try:
+                precedent = await db.penalty_precedents.find_one(
+                    {"category": penalty_category},
+                    sort=[("amount_inr", -1)]
+                )
+                if precedent:
+                    map_doc["penalty_precedent_display"] = precedent.get("amount_display")
+                    map_doc["penalty_precedent_entity"] = precedent.get("entity_name")
+            except Exception:
+                pass
+
         # Save to DB
         await maps_collection.insert_one(map_doc)
         map_doc["id"] = map_id
         del map_doc["_id"]
         maps_saved.append(map_doc)
-        
+
+    # --- Glass-Box Ledger: persist full decision trace ---
+    if result.get("decision_log"):
+        log_docs = []
+        for entry in result["decision_log"]:
+            log_docs.append({
+                "circular_id": circular_id,
+                "map_id": None,
+                **entry
+            })
+        # Final summary node
+        log_docs.append({
+            "circular_id": circular_id,
+            "map_id": None,
+            "graph_name": "compliance_extraction",
+            "node_name": "pipeline_complete",
+            "iteration": result["iteration_count"],
+            "input_summary": f"{len(result['validated_maps'])} validated MAP(s)",
+            "output_summary": f"{len(maps_saved)} MAP(s) saved, {len(result.get('remediation_payloads', []))} remediation payload(s), status={result['status']}",
+            "validation_errors": result.get("validation_errors", []),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        if log_docs:
+            await db.agent_decision_log.insert_many(log_docs)
+
     return maps_saved

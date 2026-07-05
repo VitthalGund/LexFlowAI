@@ -104,6 +104,12 @@ All frontend pages, hooks, styling variables, and test suites are complete. The 
 | Custom 22 Indian Lang Switcher | ✅ Complete | Fully customized language selector and programmatic Google Translate wrapper |
 | Mobile Sidebar Usability | ✅ Complete | Added sidebar close button and fixed desktop vertical height issue |
 | Google Translate CSS Overrides | ✅ Complete | Banner and hover popups hidden for a native look |
+| RegulatorWatcher RSS poller | ✅ Complete | Deduplicated RSS poller for official RBI notifications |
+| Triage LLM Classifier | ✅ Complete | Keyword filter + Gemini/Ollama triage workflow |
+| Regulatory Sentinel Dashboard | ✅ Complete | dashboard view for poll runs, source status, triage queue |
+| Glass-Box Ledger (Explainability) | ✅ Complete | Persists full LangGraph extraction steps for MAP audits |
+| Penalty Precedent Engine | ✅ Complete | FY25 RBI enforcement action lookup and MAP mapping |
+| WhatsApp Notification Stub | ✅ Complete | Formatted branch alert notifications stdout printer |
 
 **Legend:** ⬜ Not started | 🔄 In progress | ✅ Complete | ❌ Blocked | 🟡 Mocked
 
@@ -122,10 +128,12 @@ All frontend pages, hooks, styling variables, and test suites are complete. The 
 | Risk threshold 0.6 | Balances false positives vs. fraud detection; configurable | Planning |
 | OCR Gate before Hashing | Must verify content before immutably hashing to prevent forged evidence | Hardening |
 | Remediation Scripts Human-in-loop | Production IT systems require review; display-only generation for demo | Hardening |
+| RegulatorWatcher over Scraping | RBI scraper is fragile due to ASPX sessions; official RSS feed is robust | Ingress Watcher |
+| Glass-Box Ledger trace | Trace logs recorded inside node runs; prevents missing state audit logs | Explainability |
 
 ---
 
 ### Next Steps (Priority Order)
 
-1. **Conduct Live Demo:** Ingest RBI circular -> generate MAPs -> submit evidence -> trigger quarantine -> verify authentic receipts in TrustVault ledger.
-2. **Review Walkthrough:** Refer to [walkthrough.md](file:///C:/Users/vitth/.gemini/antigravity/brain/2ec71d80-03d3-44c9-8f47-d51add77f0c0/walkthrough.md) for full screenshots and detailed manual scenarios.
+1. **Perform Live Testing:** Trigger manual poll on the Regulatory Sentinel page, accept pending triage items, and watch them flow through the pipeline.
+2. **Review Walkthrough:** Refer to [walkthrough.md](file:///C:/Users/vitth/.gemini/antigravity/brain/215294e8-ef87-48ad-97f6-e3a9205fc009/walkthrough.md) for full endpoint schemas and implementation trace flows.

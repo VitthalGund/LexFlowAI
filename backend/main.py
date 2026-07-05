@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.core.database import connect_to_mongo, close_mongo_connection, db_connection
-from app.routers import circulars, maps, evidence, telemetry, branches, dashboard, auth, remediation, risk_review
+from app.routers import circulars, maps, evidence, telemetry, branches, dashboard, auth, remediation, risk_review, monitoring
+from app.core.scheduler import start_scheduler, shutdown_scheduler
 import asyncio
 
 @asynccontextmanager
@@ -11,14 +12,27 @@ async def lifespan(app: FastAPI):
     # Startup
     await connect_to_mongo()
     print("Connected to MongoDB database successfully!")
-    
+
     if settings.SEED_DEMO_DATA:
         print("SEED_DEMO_DATA is True. Seeding database...")
         from app.utils.demo_data import seed_demo_data
         await seed_demo_data()
-        
+
+    # Seed regulatory sources if not already present
+    from app.utils.demo_data import seed_regulatory_sources
+    await seed_regulatory_sources()
+
+    # Seed penalty precedents if not already present
+    from app.utils.penalty_precedents_seed import seed_penalty_precedents
+    await seed_penalty_precedents()
+
+    # Start RegulatorWatcher scheduler
+    start_scheduler()
+
     yield
+
     # Shutdown
+    shutdown_scheduler()
     await close_mongo_connection()
     print("Closed MongoDB connection.")
 
@@ -48,6 +62,7 @@ app.include_router(branches.router)
 app.include_router(dashboard.router)
 app.include_router(remediation.router)
 app.include_router(risk_review.router)
+app.include_router(monitoring.router)
 
 @app.get("/health")
 async def health():
