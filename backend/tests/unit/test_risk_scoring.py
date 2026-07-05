@@ -1,4 +1,3 @@
-from datetime import datetime
 from app.services.behavior import calculate_risk_score
 
 def test_risk_scoring_legitimate():

@@ -49,6 +49,7 @@ class ComplianceState(TypedDict):
     status: str
     decision_log: List[Dict[str, Any]]  # Glass-Box Ledger trace
     red_team_critique: str  # Red-Team Auditor critique text (empty string if no issues)
+    red_team_severity: str  # Parsed Red-Team severity used for routing
 
 # In-memory mock response for robust demo verification (failsafe)
 DEMO_MAPS_EXTRACTION = [
@@ -94,7 +95,11 @@ def _clean_json_text(text: str):
     return json.loads(text)
 
 
-async def _call_llm_raw(prompt: str, timeout: float = 5.0) -> Optional[str]:
+async def _call_llm_raw(
+    prompt: str,
+    gemini_timeout: float = 30.0,
+    ollama_timeout: float = 90.0,
+) -> Optional[str]:
     """
     Shared LLM caller: Gemini → Ollama → None.
     Returns raw text from the model, or None if all paths fail.
@@ -111,7 +116,7 @@ async def _call_llm_raw(prompt: str, timeout: float = 5.0) -> Optional[str]:
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {"temperature": 0.1, "response_mime_type": "application/json"}
                     },
-                    timeout=timeout
+                    timeout=gemini_timeout
                 )
                 if response.status_code == 200:
                     data = response.json()
@@ -133,7 +138,7 @@ async def _call_llm_raw(prompt: str, timeout: float = 5.0) -> Optional[str]:
                         "temperature": 0.0,
                         "response_format": {"type": "json_object"}
                     },
-                    timeout=5.0
+                    timeout=ollama_timeout
                 )
                 if response.status_code == 200:
                     data = response.json()
@@ -252,7 +257,7 @@ async def red_team_node(state: ComplianceState) -> ComplianceState:
     prompt = RED_TEAM_SYSTEM_PROMPT + f"\n\nMAPs to review:\n{maps_text}"
 
     critique_data = {"has_issue": False, "severity": "low", "critique": "", "suggestions": []}
-    raw = await _call_llm_raw(prompt, timeout=5.0)
+    raw = await _call_llm_raw(prompt)
     if raw:
         try:
             parsed = _clean_json_text(raw)
@@ -274,6 +279,7 @@ async def red_team_node(state: ComplianceState) -> ComplianceState:
     return {
         **state,
         "red_team_critique": critique_data.get("critique", ""),
+        "red_team_severity": str(critique_data.get("severity", "low")).lower(),
         "status": "red_team_reviewed",
         "decision_log": state.get("decision_log", []) + [log_entry]
     }
@@ -288,24 +294,11 @@ def should_loop_after_red_team(state: ComplianceState) -> Literal["extract", "ro
     if state["iteration_count"] >= 3:
         return "route"
 
-    critique = state.get("red_team_critique", "")
-    if not critique:
+    if not state.get("red_team_critique", ""):
         return "route"
 
     # Only high-severity issues trigger a loop-back to extraction
-    severity = ""
-    try:
-        # Re-parse from the last red_team log entry if available
-        red_team_logs = [e for e in state.get("decision_log", []) if e.get("node_name") == "red_team"]
-        if red_team_logs:
-            last_log = red_team_logs[-1]
-            output = last_log.get("output_summary", "")
-            if "Severity: high" in output:
-                severity = "high"
-    except Exception:
-        pass
-
-    if severity == "high":
+    if state.get("red_team_severity", "").lower() == "high":
         return "extract"
     return "route"
 
@@ -344,7 +337,6 @@ async def remediation_node_action(state: ComplianceState) -> ComplianceState:
 
 async def translation_node_action(state: ComplianceState) -> ComplianceState:
     import asyncio
-    translated_maps = []
     
     # We will gather all translation tasks across all maps and languages
     # to run them concurrently.
@@ -442,7 +434,8 @@ async def run_compliance_pipeline(db: AsyncIOMotorDatabase, circular_id: str, ci
         "iteration_count": 0,
         "status": "extracting",
         "decision_log": [],  # Glass-Box Ledger
-        "red_team_critique": ""  # Red-Team Auditor output
+        "red_team_critique": "",  # Red-Team Auditor output
+        "red_team_severity": "low"
     }
     
     result = await graph.ainvoke(initial_state)

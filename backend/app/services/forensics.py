@@ -8,7 +8,6 @@ It does NOT definitively "detect deepfakes" — it surfaces anomalies.
 Per code-standards.md: constants in SCREAMING_SNAKE_CASE at module top.
 """
 import io
-import json
 from typing import List, Tuple
 from PIL import Image, ExifTags
 import numpy as np
@@ -24,6 +23,11 @@ FORENSICS_ELA_SCALE = 15.0          # Amplification scale for normalizing ELA sc
 # MIME types treated as image vs PDF
 IMAGE_CONTENT_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/bmp"}
 PDF_CONTENT_TYPES = {"application/pdf"}
+
+
+def _count_pdf_revision_markers(pdf_bytes: bytes) -> int:
+    """Count conservative raw PDF revision markers."""
+    return max(pdf_bytes.count(b"startxref"), pdf_bytes.count(b"%%EOF"))
 
 
 def compute_ela_score(image_bytes: bytes) -> Tuple[float, List[str]]:
@@ -141,7 +145,7 @@ def check_pdf_integrity(pdf_bytes: bytes) -> Tuple[float, List[str]]:
 
         pdf = pikepdf.open(io.BytesIO(pdf_bytes))
 
-        with pdf.open_metadata() as meta:
+        with pdf.open_metadata():
             # Check docinfo for producer/creator
             producer = str(pdf.docinfo.get("/Producer", "")).strip()
             creator = str(pdf.docinfo.get("/Creator", "")).strip()
@@ -164,23 +168,13 @@ def check_pdf_integrity(pdf_bytes: bytes) -> Tuple[float, List[str]]:
 
         # Check date mismatch: ModDate significantly newer than CreationDate
         if creation_date and mod_date and creation_date != mod_date:
-            signals.append(f"PDF modification date differs from creation date — document was modified after initial creation")
+            signals.append("PDF modification date differs from creation date — document was modified after initial creation")
             penalty += 0.2
 
-        # Check for incremental updates via xref count
-        # More than 1 xref section means the PDF was saved multiple times (incremental updates)
-        try:
-            # pikepdf exposes xref tables — count them
-            xref_count = len(list(pdf.pages))  # proxy: if linearized or has multiple trailers
-            trailer_count = 0
-            # Walk raw xref tables
-            for xref_type in pdf._resolve_indirect(pdf.trailer).get("/XRefStm", []):
-                trailer_count += 1
-            if trailer_count > 0:
-                signals.append(f"PDF contains incremental updates ({trailer_count} additional xref sections) — document was modified after initial save")
-                penalty += 0.15
-        except Exception:
-            pass
+        revision_markers = _count_pdf_revision_markers(pdf_bytes)
+        if revision_markers > 1:
+            signals.append(f"PDF contains incremental updates ({revision_markers - 1} additional revision marker(s)) - document may have been modified after initial save")
+            penalty += 0.15
 
         pdf.close()
 

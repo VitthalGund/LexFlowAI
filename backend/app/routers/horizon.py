@@ -6,7 +6,6 @@ from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.models.horizon import HorizonSignalResponse
 
 router = APIRouter(prefix="/api/v1/horizon", tags=["Horizon Scanning"])
 
@@ -78,7 +77,7 @@ async def start_preparation(
             f"Rationale: {signal['rationale']}\n"
             f"Source link: {signal.get('link')}"
         ),
-        "kpi": f"Draft compliance blueprint, risk analysis, and department policy gap report completed.",
+        "kpi": "Draft compliance blueprint, risk analysis, and department policy gap report completed.",
         "deadline_days": days,
         "deadline": deadline,
         "department": "RISK",

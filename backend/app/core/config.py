@@ -1,7 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
-import os
-import secrets
 
 class Settings(BaseSettings):
     MONGODB_URI: str = "mongodb://localhost:27017"

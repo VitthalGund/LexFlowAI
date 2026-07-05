@@ -1,5 +1,4 @@
 import pytest
-from hashlib import sha256
 from app.services.evidence_graph import run_evidence_validation_graph
 from app.services.remediation_forge import generate_remediation_payload, compile_secure_payload
 from app.services.behavior import calculate_risk_score
@@ -106,7 +105,9 @@ async def test_air_gapped_remediation_signing():
     assert "hmac_signature" in payload_container
     
     # Reconstruct verification checks to evaluate package integrity
-    import os, hmac, hashlib
+    import os
+    import hmac
+    import hashlib
     secret_key = os.environ.get("BANK_SECRET_KEY", "default-hackathon-secret-key-12345").encode('utf-8')
     payload_hash = hmac.new(secret_key, payload_container["payload_bytes"].encode('utf-8'), hashlib.sha256).hexdigest()
     assert payload_container["verification_hash"] == payload_hash

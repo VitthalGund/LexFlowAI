@@ -46,7 +46,7 @@ async def notify_branch_manager(
     }
 
     # STUB: Log instead of sending
-    print(f"[WhatsApp Stub] Would send notification:")
+    print("[WhatsApp Stub] Would send notification:")
     print(f"  To     : {payload['to']}")
     print(f"  MAP    : {map_id}")
     print(f"  Branch : {branch_lgd_code}")

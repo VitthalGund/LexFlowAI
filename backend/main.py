@@ -5,7 +5,6 @@ from app.core.config import settings
 from app.core.database import connect_to_mongo, close_mongo_connection, db_connection
 from app.routers import circulars, maps, evidence, telemetry, branches, dashboard, auth, remediation, risk_review, monitoring, horizon, continuum
 from app.core.scheduler import start_scheduler, shutdown_scheduler
-import asyncio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

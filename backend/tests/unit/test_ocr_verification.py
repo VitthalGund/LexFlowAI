@@ -1,6 +1,5 @@
 import pytest
 from app.services.ocr_verification import extract_keywords_from_map, verify_evidence_content
-from app.models.ocr_models import EvidenceVerificationResult
 from unittest.mock import patch
 
 def test_keyword_extraction_from_map():

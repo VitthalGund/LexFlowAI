@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_roles
 from bson import ObjectId
 from app.services.remediation_forge import compile_secure_payload
 
@@ -32,7 +32,6 @@ async def get_remediation_payload(
         
     return payload
 
-from app.core.dependencies import get_current_user, require_roles
 
 @router.post("/{map_id}/approve")
 async def approve_remediation_payload(

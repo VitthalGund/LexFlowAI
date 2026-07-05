@@ -1,8 +1,7 @@
 import pytest
 from app.services.vault import process_evidence_upload
 from datetime import datetime, timezone
-import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 @pytest.mark.asyncio
 async def test_ocr_vault_integration_pass(monkeypatch):

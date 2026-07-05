@@ -15,14 +15,12 @@ Design principles:
 """
 
 import asyncio
-import re
 from datetime import datetime, timezone
 from urllib.parse import urlparse, parse_qs
 from typing import Optional
 
 import feedparser
 from bs4 import BeautifulSoup
-from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.services.triage import classify_relevance
@@ -86,10 +84,8 @@ async def fetch_feed(url: str) -> list[dict]:
         # Parse pub_date
         pub_date = None
         if hasattr(entry, "published_parsed") and entry.published_parsed:
-            import time
             pub_date = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
         elif hasattr(entry, "updated_parsed") and entry.updated_parsed:
-            import time
             pub_date = datetime(*entry.updated_parsed[:6], tzinfo=timezone.utc)
 
         entries.append({

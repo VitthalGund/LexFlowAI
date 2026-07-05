@@ -74,10 +74,11 @@ async def push_policy(policy_id: str, rego_source: str) -> bool:
         return False
 
 
-async def evaluate_policy(policy_id: str, input_state: dict) -> Tuple[bool, Optional[str]]:
+async def evaluate_policy(policy_id: str, input_state: dict) -> Tuple[Optional[bool], Optional[str]]:
     """
     Evaluate current system state input against policy in OPA.
-    Returns (compliant, error_message).
+    Returns (compliant, error_message). compliant=None means OPA did not
+    produce an authoritative result, so callers must not create or resolve alerts.
     """
     clean_id = clean_policy_id(policy_id)
     url = f"{settings.OPA_BASE_URL.rstrip('/')}/v1/data/compliance/policy_{clean_id}"
@@ -100,8 +101,8 @@ async def evaluate_policy(policy_id: str, input_state: dict) -> Tuple[bool, Opti
                 
                 return bool(result["compliant"]), None
             else:
-                return False, f"OPA evaluation returned status code {response.status_code}: {response.text}"
+                return None, f"OPA evaluation returned status code {response.status_code}: {response.text}"
     except Exception as e:
-        # Fail open / warn: OPA is down, log warning instead of crashing
+        # OPA is down or unreachable: keep existing alert state unchanged.
         print(f"[ContinuumGuard] OPA evaluation connection error to {url}: {e}")
-        return True, f"OPA offline: {str(e)}"
+        return None, f"OPA offline: {str(e)}"

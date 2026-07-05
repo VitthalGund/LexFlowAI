@@ -113,7 +113,6 @@ async def simulate_drift(
     )
 
     # Trigger policy evaluation immediately for demo responsiveness
-    from app.services.policy_engine import evaluate_policy
     # Let's find any MAP linked to this key to test compliance
     # E.g. KPI key matches or department is IT
     # If the simulated state violates a policy, we will create a drift alert.
@@ -209,8 +208,10 @@ async def run_compliance_evaluation(db: AsyncIOMotorDatabase) -> List[dict]:
             if err:
                 print(f"[ContinuumGuard] Policy evaluation warning for MAP {map_id}: {err}")
                 # OPA offline or error, skip creating alert to prevent false alerts
+                if compliant is None:
+                    continue
 
-            if not compliant and not err:
+            if compliant is False and not err:
                 # Compliance drift detected! Check if an open alert already exists
                 existing_alert = await db.compliance_drift_alerts.find_one({
                     "map_id": map_id,
@@ -236,7 +237,7 @@ async def run_compliance_evaluation(db: AsyncIOMotorDatabase) -> List[dict]:
                     alerts_created.append(alert_doc)
                     print(f"[ContinuumGuard] Compliance DRIFT alert created for MAP {map_id} at branch {branch_lgd}!")
             
-            elif compliant:
+            elif compliant is True:
                 # If currently compliant, resolve any open alerts
                 await db.compliance_drift_alerts.update_many(
                     {"map_id": map_id, "branch_lgd_code": branch_lgd, "status": "OPEN"},
