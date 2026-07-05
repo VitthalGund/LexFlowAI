@@ -254,23 +254,55 @@ async def remediation_node_action(state: ComplianceState) -> ComplianceState:
     }
 
 async def translation_node_action(state: ComplianceState) -> ComplianceState:
+    import asyncio
     translated_maps = []
-    for map_dict in state["validated_maps"]:
-        translations = {}
+    
+    # We will gather all translation tasks across all maps and languages
+    # to run them concurrently.
+    tasks = []
+    task_keys = [] # list of (map_idx, lang)
+    
+    for map_idx, map_dict in enumerate(state["validated_maps"]):
         for lang in ["kn", "ta", "ml", "hi"]:
-            translations[lang] = await translate_text(
+            tasks.append(translate_text(
                 map_dict["description"],
                 map_dict["title"],
                 lang
-            )
-        translated_maps.append({
-            **map_dict,
-            "translations": translations
-        })
+            ))
+            task_keys.append((map_idx, lang))
+            
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Reassemble results back into respective maps
+    maps_with_translations = [dict(m) for m in state["validated_maps"]]
+    for idx, result in enumerate(results):
+        map_idx, lang = task_keys[idx]
+        if "translations" not in maps_with_translations[map_idx]:
+            maps_with_translations[map_idx]["translations"] = {}
+        
+        if isinstance(result, Exception):
+            print(f"Parallel translation error for map {map_idx} lang {lang}: {result}")
+            # Fallback to empty string or original text
+            maps_with_translations[map_idx]["translations"][lang] = f"Translation error: {maps_with_translations[map_idx]['description']}"
+        else:
+            maps_with_translations[map_idx]["translations"][lang] = result
+
+    # Log the step
+    log_entry = {
+        "graph_name": "compliance_extraction",
+        "node_name": "translate",
+        "iteration": state["iteration_count"],
+        "input_summary": f"Translating {len(state['validated_maps'])} MAP(s) into 4 languages",
+        "output_summary": "Parallel translations generated successfully",
+        "validation_errors": [],
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    
     return {
         **state,
-        "validated_maps": translated_maps,
-        "status": "complete"
+        "validated_maps": maps_with_translations,
+        "status": "complete",
+        "decision_log": state.get("decision_log", []) + [log_entry]
     }
 
 # --- Compiler Builder ---

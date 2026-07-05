@@ -83,6 +83,7 @@ export default function MonitoringPage() {
   const [isPolling, setIsPolling] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [pollResult, setPollResult] = useState<string | null>(null);
+  const [processingItems, setProcessingItems] = useState<Record<string, 'accept' | 'reject' | null>>({});
 
   const fetchAll = useCallback(async () => {
     try {
@@ -129,20 +130,26 @@ export default function MonitoringPage() {
   };
 
   const handleAccept = async (id: string) => {
+    setProcessingItems(prev => ({ ...prev, [id]: 'accept' }));
     try {
       await api.post(`/api/v1/monitoring/pending-triage/${id}/accept`);
       await fetchAll();
     } catch (e) {
       alert('Failed to ingest notification. It may already exist.');
+    } finally {
+      setProcessingItems(prev => ({ ...prev, [id]: null }));
     }
   };
 
   const handleReject = async (id: string) => {
+    setProcessingItems(prev => ({ ...prev, [id]: 'reject' }));
     try {
       await api.post(`/api/v1/monitoring/pending-triage/${id}/reject`);
       await fetchAll();
     } catch (e) {
       alert('Failed to reject notification.');
+    } finally {
+      setProcessingItems(prev => ({ ...prev, [id]: null }));
     }
   };
 
@@ -248,17 +255,27 @@ export default function MonitoringPage() {
                   <div className="flex gap-2 shrink-0">
                     <button
                       onClick={() => handleAccept(item.id)}
-                      className="flex items-center gap-1 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded active:scale-95 transition-all"
+                      disabled={!!processingItems[item.id]}
+                      className="flex items-center gap-1 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded active:scale-95 transition-all disabled:opacity-50"
                     >
-                      <Check className="h-3.5 w-3.5" />
-                      Accept
+                      {processingItems[item.id] === 'accept' ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
+                      <span>Accept</span>
                     </button>
                     <button
                       onClick={() => handleReject(item.id)}
-                      className="flex items-center gap-1 text-xs font-bold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded active:scale-95 transition-all"
+                      disabled={!!processingItems[item.id]}
+                      className="flex items-center gap-1 text-xs font-bold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-3 py-1.5 rounded active:scale-95 transition-all disabled:opacity-50"
                     >
-                      <X className="h-3.5 w-3.5" />
-                      Reject
+                      {processingItems[item.id] === 'reject' ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-red-600" />
+                      ) : (
+                        <X className="h-3.5 w-3.5" />
+                      )}
+                      <span>Reject</span>
                     </button>
                   </div>
                 </div>
