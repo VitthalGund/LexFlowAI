@@ -48,7 +48,7 @@ async def translate_text(text: str, title: str, lang: str) -> str:
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {"temperature": 0.1}
                     },
-                    timeout=15.0
+                    timeout=3.0
                 )
                 if response.status_code == 200:
                     data = response.json()

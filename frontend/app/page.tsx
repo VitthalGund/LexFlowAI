@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Landmark, Lock, Mail, ShieldAlert, Cpu } from 'lucide-react';
+import { Landmark, Lock, Mail, ShieldAlert, Cpu, Monitor, WifiOff, Sparkles, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, isAuthenticated, user, loading: authLoading } = useAuth();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,10 +33,10 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
+
     const success = await login(email, password);
     setLoading(false);
-    
+
     if (!success) {
       setError('Invalid email or password. Please verify credentials.');
     }
@@ -47,7 +47,7 @@ export default function LoginPage() {
     setPassword('demo123');
     setError('');
     setLoading(true);
-    
+
     const success = await login(quickEmail, 'demo123');
     setLoading(false);
     if (!success) {
@@ -67,7 +67,7 @@ export default function LoginPage() {
     <div className="relative min-h-screen flex flex-col justify-between text-white bg-gradient-to-br from-[#0A1628] to-[#1A3A6B] overflow-hidden select-none">
       {/* Cryptographic Grid overlay */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none"></div>
-      
+
       {/* Background Orbs */}
       <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-[400px] h-[400px] rounded-full bg-emerald-500/5 blur-[100px] pointer-events-none"></div>
@@ -165,7 +165,7 @@ export default function LoginPage() {
                 <span className="font-semibold text-white group-hover:text-primary-300">Chief Compliance Officer</span>
                 <span className="text-[9px] text-white/40 mt-0.5">HO Bengaluru</span>
               </button>
-              
+
               <button
                 onClick={() => handleQuickLogin('priya@canarabank.com')}
                 disabled={loading}
@@ -196,6 +196,7 @@ export default function LoginPage() {
           </div>
         </div>
       </main>
+
 
       {/* Footer */}
       <footer className="w-full py-6 bg-slate-950/30 border-t border-white/5 backdrop-blur-sm relative z-10">

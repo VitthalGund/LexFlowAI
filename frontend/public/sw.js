@@ -37,6 +37,9 @@ self.addEventListener('fetch', (event) => {
   // Only cache GET requests
   if (event.request.method !== 'GET') return;
   
+  // Only cache http/https requests (prevent chrome-extension://, etc. errors)
+  if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) return;
+  
   // Don't cache API requests, we want them fresh or handled by IndexedDB logic in app
   if (event.request.url.includes('/api/')) return;
 

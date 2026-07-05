@@ -116,6 +116,7 @@ async def seed_demo_data():
     await db.maps.delete_many({})
     await db.users.delete_many({})
     await db.evidence_vault.delete_many({})
+    await db.horizon_signals.delete_many({})
     
     # Seed branches
     await db.branches.insert_many(DEMO_BRANCHES)
@@ -236,6 +237,78 @@ async def seed_demo_data():
     ]
     await db.mock_system_state.insert_many(mock_states)
     print("✓ Seeded mock system states for ContinuumGuard")
+
+    # Seed mock horizon signals for LexFlow Horizon
+    mock_signals = [
+        {
+            "title": "Governor's Address on Digital Lending and Customer Data Safety",
+            "theme": "Digital Lending",
+            "link": "https://www.rbi.org.in/speeches/speech_digital_lending_safety.html",
+            "detected_at": now - timedelta(days=1),
+            "confidence": 0.88,
+            "rationale": "The RBI Governor explicitly warned that digital lending platforms must strengthen data residency audits or face enforcement actions within the next 3 to 6 months.",
+            "estimated_action_window_days": 90,
+            "status": "DETECTED",
+            "prep_map_id": None
+        },
+        {
+            "title": "Deputy Governor Speech: Cybersecurity Resilience of PSU Banks",
+            "theme": "Cybersecurity",
+            "link": "https://www.rbi.org.in/speeches/speech_cybersec_resilience.html",
+            "detected_at": now - timedelta(days=2),
+            "confidence": 0.76,
+            "rationale": "Indicated that RBI is drafting a revised master direction on cloud security architectures and third-party IT risk management.",
+            "estimated_action_window_days": 120,
+            "status": "DETECTED",
+            "prep_map_id": None
+        }
+    ]
+    
+    await db.horizon_signals.insert_many(mock_signals)
+    print("✓ Seeded mock horizon signals for LexFlow Horizon")
+    
+    # Create the third signal with linked MAP
+    from bson import ObjectId
+    sig3_id = ObjectId()
+    map_id = f"MAP-HORIZON-{str(sig3_id)[-8:]}"
+    
+    sig3 = {
+        "_id": sig3_id,
+        "title": "Master Circular Preview: Tokenisation of Card Transactions",
+        "theme": "Tokenisation",
+        "link": "https://www.rbi.org.in/speeches/tokenisation_preview.html",
+        "detected_at": now - timedelta(days=4),
+        "confidence": 0.95,
+        "rationale": "Draft tokenisation guidelines released, indicating upcoming mandatory token-only database rules for recurring payments.",
+        "estimated_action_window_days": 60,
+        "status": "PREP_STARTED",
+        "prep_map_id": map_id
+    }
+    
+    await db.horizon_signals.insert_one(sig3)
+    
+    # Seed the corresponding anticipatory MAP for the tokenisation signal
+    await db.maps.insert_one({
+        "_id": map_id,
+        "circular_id": f"HORIZON-{str(sig3_id)[-8:]}",
+        "title": f"[Anticipatory] {sig3['title']}",
+        "description": f"Preparatory actions for upcoming regulatory changes regarding {sig3['theme']}.\nRationale: {sig3['rationale']}\nSource link: {sig3['link']}",
+        "kpi": "Draft compliance blueprint, risk analysis, and department policy gap report completed.",
+        "deadline_days": 60,
+        "deadline": now + timedelta(days=60),
+        "department": "RISK",
+        "evidence_type": "POLICY_DOC",
+        "geographic_scope": "NATIONAL",
+        "target_lgd_codes": [],
+        "translations": {},
+        "status": "PENDING",
+        "behavioral_risk_score": 0.0,
+        "evidence_hash": None,
+        "remediation_payload": None,
+        "is_anticipatory": True,
+        "horizon_signal_id": str(sig3_id)
+    })
+    print("✓ Seeded active anticipatory blueprint map")
     
     print("\n🎉 Demo data seed complete!")
 

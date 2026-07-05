@@ -94,7 +94,7 @@ def _clean_json_text(text: str):
     return json.loads(text)
 
 
-async def _call_llm_raw(prompt: str, timeout: float = 30.0) -> Optional[str]:
+async def _call_llm_raw(prompt: str, timeout: float = 5.0) -> Optional[str]:
     """
     Shared LLM caller: Gemini → Ollama → None.
     Returns raw text from the model, or None if all paths fail.
@@ -133,7 +133,7 @@ async def _call_llm_raw(prompt: str, timeout: float = 30.0) -> Optional[str]:
                         "temperature": 0.0,
                         "response_format": {"type": "json_object"}
                     },
-                    timeout=90.0
+                    timeout=5.0
                 )
                 if response.status_code == 200:
                     data = response.json()
@@ -252,7 +252,7 @@ async def red_team_node(state: ComplianceState) -> ComplianceState:
     prompt = RED_TEAM_SYSTEM_PROMPT + f"\n\nMAPs to review:\n{maps_text}"
 
     critique_data = {"has_issue": False, "severity": "low", "critique": "", "suggestions": []}
-    raw = await _call_llm_raw(prompt, timeout=30.0)
+    raw = await _call_llm_raw(prompt, timeout=5.0)
     if raw:
         try:
             parsed = _clean_json_text(raw)

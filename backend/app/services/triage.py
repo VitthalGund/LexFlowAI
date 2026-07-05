@@ -56,7 +56,7 @@ async def classify_relevance(title: str, text: str) -> dict:
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {"temperature": 0.1, "response_mime_type": "application/json"}
                     },
-                    timeout=20.0
+                    timeout=3.0
                 )
                 if response.status_code == 200:
                     data = response.json()
@@ -78,7 +78,7 @@ async def classify_relevance(title: str, text: str) -> dict:
                         "temperature": 0.0,
                         "response_format": {"type": "json_object"}
                     },
-                    timeout=60.0
+                    timeout=3.0
                 )
                 if response.status_code == 200:
                     data = response.json()
@@ -87,6 +87,7 @@ async def classify_relevance(title: str, text: str) -> dict:
                     return json.loads(content.strip())
         except Exception as e:
             print(f"[Triage] Ollama call failed: {e}")
+
 
     # Both failed — fail-open to human review (safe default)
     return {
@@ -149,7 +150,7 @@ async def extract_horizon_signal(title: str, text: str) -> dict:
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {"temperature": 0.1, "response_mime_type": "application/json"}
                     },
-                    timeout=20.0
+                    timeout=3.0
                 )
                 if response.status_code == 200:
                     data = response.json()
@@ -170,7 +171,7 @@ async def extract_horizon_signal(title: str, text: str) -> dict:
                         "temperature": 0.0,
                         "response_format": {"type": "json_object"}
                     },
-                    timeout=60.0
+                    timeout=3.0
                 )
                 if response.status_code == 200:
                     data = response.json()
@@ -178,6 +179,7 @@ async def extract_horizon_signal(title: str, text: str) -> dict:
                     return json.loads(content.strip())
         except Exception as e:
             print(f"[Horizon Scanner] Ollama call failed: {e}")
+
 
     # Fail safe
     return {
