@@ -34,6 +34,13 @@ All frontend pages, hooks, styling variables, and test suites are complete. The 
 - [x] Implemented RemediationForge for IT tasks (API payloads + Shell scripts + RPA instructions)
 - [x] Built IT Remediation UI portal (`/it/maps` and `/it/maps/[id]`)
 - [x] Synthetic circulars for IT and Physical Security testing
+- [x] Enforced role-based URL guards in Next.js frontend (`AppLayout.tsx`)
+- [x] Updated login routing to direct roles to their homepages (`useAuth.ts` and login `page.tsx`)
+- [x] Designed LexFlow vector logo and generated 192x192 & 512x512 PWA icons
+- [x] Implemented PWA background auto-updater and controllerchange reloader
+- [x] Fixed Service Worker non-HTTP scheme caching crash (e.g. `chrome-extension://`)
+- [x] Seeded high-fidelity mock signals & linked anticipatory maps for Horizon Scanner
+- [x] Shortened LLM timeouts to 3-5 seconds for instant offline/unreachable fail-over
 
 ---
 
@@ -99,7 +106,9 @@ All frontend pages, hooks, styling variables, and test suites are complete. The 
 | SentinelVision Forensics | ✅ Complete | ELA, EXIF, and PDF structural integrity checks for uploaded evidence |
 | LexFlow Horizon Scanner | ✅ Complete | RBI Speeches/Publications scanning for anticipatory foresight MAPs |
 | ContinuumGuard Policy-as-Code | ✅ Complete | OPA Rego-based continuous compliance checking against branch telemetry |
-
+| Role-Based Route Guards | ✅ Complete | Restricts dashboard / configuration access; redirects roles to target portals |
+| PWA Auto-Updater Engine | ✅ Complete | Polls and reloads active tabs dynamically on new version releases |
+| Horizon Scanner Seed Data | ✅ Complete | Active speeches/publications signals and linked anticipatory MAPs seeded |
 
 **Legend:** ⬜ Not started | 🔄 In progress | ✅ Complete | ❌ Blocked | 🟡 Mocked
 
@@ -120,10 +129,14 @@ All frontend pages, hooks, styling variables, and test suites are complete. The 
 | Remediation Scripts Human-in-loop | Production IT systems require review; display-only generation for demo | Hardening |
 | RegulatorWatcher over Scraping | RBI scraper is fragile due to ASPX sessions; official RSS feed is robust | Ingress Watcher |
 | Glass-Box Ledger trace | Trace logs recorded inside node runs; prevents missing state audit logs | Explainability |
+| Next.js `app/icon.png` | Bypasses Turbopack binary ICO decoder failures. Standard App Router support is clean. | July 5, 2026 |
+| LLM Fast-Failover Timeouts | Shortened to 3-5 seconds. Offline/unreachable LLM runs fail-over instantly to mock data. | July 5, 2026 |
+| SW HTTP/S Scheme Filter | Ignore `chrome-extension://` requests in sw.js to prevent Cache API scheme crashes. | July 5, 2026 |
 
 ---
 
 ### Next Steps (Priority Order)
 
-1. **Perform Live Testing:** Trigger manual poll on the Regulatory Sentinel page, accept pending triage items, and watch them flow through the pipeline.
+1. **Verify Horizon Scanning & Preparedness:** Go to `/horizon`, view seeded signals, click "Start Prep", and verify the new speculative MAP appears with a dashed border and Telescopic badge.
 2. **Review Walkthrough:** Refer to [walkthrough.md](file:///C:/Users/vitth/.gemini/antigravity/brain/215294e8-ef87-48ad-97f6-e3a9205fc009/walkthrough.md) for full endpoint schemas and implementation trace flows.
+
