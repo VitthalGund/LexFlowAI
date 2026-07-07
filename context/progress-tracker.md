@@ -109,6 +109,7 @@ All frontend pages, hooks, styling variables, and test suites are complete. The 
 | Role-Based Route Guards | ✅ Complete | Restricts dashboard / configuration access; redirects roles to target portals |
 | PWA Auto-Updater Engine | ✅ Complete | Polls and reloads active tabs dynamically on new version releases |
 | Horizon Scanner Seed Data | ✅ Complete | Active speeches/publications signals and linked anticipatory MAPs seeded |
+| Pre-generated Seeding Payloads | ✅ Complete | Seeding process pre-generates and signs secure IT remediation payloads |
 
 **Legend:** ⬜ Not started | 🔄 In progress | ✅ Complete | ❌ Blocked | 🟡 Mocked
 

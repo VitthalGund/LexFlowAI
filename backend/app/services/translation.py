@@ -22,11 +22,15 @@ MOCK_TRANSLATIONS = {
     }
 }
 
+_gemini_unreachable = False  # Fail-fast flag to prevent parallel timeout cascading
+
 async def translate_text(text: str, title: str, lang: str) -> str:
     """
     Translates text to target language code using Gemini API.
     Falls back to pre-seeded dict or a mock label if API fails.
     """
+    global _gemini_unreachable
+    
     lang_names = {
         "kn": "Kannada",
         "ta": "Tamil",
@@ -38,7 +42,7 @@ async def translate_text(text: str, title: str, lang: str) -> str:
     
     target_language = lang_names.get(lang, lang)
     
-    if settings.GEMINI_API_KEY:
+    if settings.LLM_MODE in ("auto", "online") and settings.GEMINI_API_KEY and not _gemini_unreachable:
         try:
             prompt = f"Translate the following text to {target_language}. Return ONLY the translated text without any quotes or explanations.\n\n{text}"
             async with httpx.AsyncClient() as client:
@@ -48,14 +52,18 @@ async def translate_text(text: str, title: str, lang: str) -> str:
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {"temperature": 0.1}
                     },
-                    timeout=3.0
+                    timeout=2.0
                 )
                 if response.status_code == 200:
                     data = response.json()
                     translated_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
                     return translated_text
+                else:
+                    print(f"Translation API error status: {response.status_code}")
+                    _gemini_unreachable = True
         except Exception as e:
-            print(f"Translation API Error: {e}")
+            print(f"Translation API connection/timeout error: {e}")
+            _gemini_unreachable = True
 
     # Fallbacks if API fails or is not configured
     if title in MOCK_TRANSLATIONS and lang in MOCK_TRANSLATIONS[title]:

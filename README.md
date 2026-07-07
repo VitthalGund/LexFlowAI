@@ -66,6 +66,12 @@ To run LexFlow AI locally for testing and evaluation, follow these steps careful
    ```bash
    npm run dev
    ```
+   
+   *Alternative: Run the optimized production build and preview it locally:*
+   ```bash
+   npm run build
+   npm run start
+   ```
 4. Access the portal at `http://localhost:3000`.
 
 ### Step 3: Test the Application

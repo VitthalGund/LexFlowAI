@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 from app.core.config import settings
 from app.core.security import get_password_hash as hash_password
+from app.services.remediation_forge import generate_remediation_payload, compile_secure_payload
 
 DEMO_BRANCHES = [
     {"lgd_code": "2902001", "branch_name": "MG Road, Bengaluru", "district": "Bengaluru Urban", 
@@ -138,10 +139,21 @@ async def seed_demo_data():
         m["deadline"] = datetime.now(timezone.utc) + timedelta(days=m["deadline_days"])
         m["behavioral_risk_score"] = 0.0
         m["evidence_hash"] = None
+        
+        if m.get("department") == "IT":
+            payload = await generate_remediation_payload(m)
+            secure_container = await compile_secure_payload(payload.model_dump())
+            m["remediation_payload"] = secure_container
+            m["remediation_approved"] = False
+            m["status"] = "PENDING_IT_APPROVAL"
+        else:
+            m["remediation_payload"] = None
+            m["remediation_approved"] = None
+            
         maps_with_ids.append(m)
     
     await db.maps.insert_many(maps_with_ids)
-    print(f"✓ Seeded {len(DEMO_MAPS)} MAPs")
+    print(f"✓ Seeded {len(DEMO_MAPS)} MAPs with remediation payloads")
     
     # Seed demo users
     users = [

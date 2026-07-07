@@ -172,17 +172,18 @@ CIRCULAR TEXT:
     if raw:
         try:
             parsed = _clean_json_text(raw)
-            if isinstance(parsed, list):
+            if isinstance(parsed, list) and len(parsed) > 0:
                 return parsed
             if isinstance(parsed, dict):
                 for k, v in parsed.items():
-                    if isinstance(v, list):
+                    if isinstance(v, list) and len(v) > 0:
                         return v
-                return [parsed]
+                if parsed:
+                    return [parsed]
         except Exception as e:
             print(f"Error parsing LLM extraction response: {e}")
 
-    # Absolute fallback if all real LLMs fail
+    # Absolute fallback if all real LLMs fail or return empty data
     return DEMO_MAPS_EXTRACTION
 
 # --- LangGraph Node Actions ---
@@ -338,6 +339,13 @@ async def remediation_node_action(state: ComplianceState) -> ComplianceState:
 async def translation_node_action(state: ComplianceState) -> ComplianceState:
     import asyncio
     
+    # Pre-flight check: execute one translation sequentially to set the fail-fast flag if offline
+    if state.get("validated_maps"):
+        try:
+            await translate_text("preflight_check", "preflight_check", "hi")
+        except Exception:
+            pass
+
     # We will gather all translation tasks across all maps and languages
     # to run them concurrently.
     tasks = []
