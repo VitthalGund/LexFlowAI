@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
@@ -78,10 +78,11 @@ async def list_pending_triage(
 @router.post("/pending-triage/{notification_id}/accept")
 async def accept_triage_item(
     notification_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncIOMotorDatabase = Depends(get_db),
     current_user: dict = Depends(require_roles(["COMPLIANCE_OFFICER"]))
 ):
-    """Manually accept a pending-triage notification and ingest it."""
+    """Manually accept a pending-triage notification and ingest it in the background."""
     try:
         notif = await db.seen_notifications.find_one({"_id": ObjectId(notification_id)})
     except Exception:
@@ -97,24 +98,21 @@ async def accept_triage_item(
         notif.get("external_id", notification_id)
     )
 
-    try:
-        result = await create_and_process_circular(
-            db=db,
-            circular_number=circular_number,
-            title=notif.get("title", "Unknown"),
-            raw_text=clean_text,
-            issued_date=notif.get("pub_date")
-        )
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except RuntimeError as re:
-        raise HTTPException(status_code=500, detail=str(re))
-
     await db.seen_notifications.update_one(
         {"_id": ObjectId(notification_id)},
-        {"$set": {"relevance_status": "MANUALLY_INGESTED", "circular_id": result["circular_id"]}}
+        {"$set": {"relevance_status": "MANUALLY_INGESTED"}}
     )
-    return {"message": "Notification ingested successfully", "circular_id": result["circular_id"]}
+
+    background_tasks.add_task(
+        create_and_process_circular,
+        db=db,
+        circular_number=circular_number,
+        title=notif.get("title", "Unknown"),
+        raw_text=clean_text,
+        issued_date=notif.get("pub_date")
+    )
+    
+    return {"message": "Notification queued for ingestion successfully"}
 
 
 @router.post("/pending-triage/{notification_id}/reject")

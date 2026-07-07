@@ -4,6 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Landmark, Lock, Mail, ShieldAlert, Cpu, Monitor, WifiOff, Sparkles, Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
+
+interface DemoUser {
+  email: string;
+  name: string;
+  role: string;
+  branch_lgd_code?: string;
+  language?: string;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +22,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [demoUsers, setDemoUsers] = useState<DemoUser[]>([]);
+
+  useEffect(() => {
+    const fetchDemoUsers = async () => {
+      try {
+        const res = await api.get('/api/v1/auth/demo-users');
+        if (res.data) setDemoUsers(res.data);
+      } catch (err) {
+        console.error('Failed to fetch demo users', err);
+      }
+    };
+    fetchDemoUsers();
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -157,41 +179,42 @@ export default function LoginPage() {
 
             {/* Quick Logins */}
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                onClick={() => handleQuickLogin('arjun@canarabank.com')}
-                disabled={loading}
-                className="flex flex-col items-start p-2.5 rounded bg-white/30 hover:bg-white/10 border border-white/10 hover:border-white/20 text-left transition-all group shrink-0"
-              >
-                <span className="font-semibold text-white group-hover:text-primary-300">Chief Compliance Officer</span>
-                <span className="text-[9px] text-white/40 mt-0.5">HO Bengaluru</span>
-              </button>
+              {demoUsers.length > 0 ? (
+                demoUsers.map((demoUser, idx) => {
+                  const isLastOdd = demoUsers.length % 2 !== 0 && idx === demoUsers.length - 1;
+                  
+                  let displayTitle = demoUser.name;
+                  let displaySubtitle = demoUser.role.replace('_', ' ');
 
-              <button
-                onClick={() => handleQuickLogin('priya@canarabank.com')}
-                disabled={loading}
-                className="flex flex-col items-start p-2.5 rounded bg-white/30 hover:bg-white/10 border border-white/10 hover:border-white/20 text-left transition-all group shrink-0"
-              >
-                <span className="font-semibold text-white group-hover:text-primary-300">Priya Nair (Manager)</span>
-                <span className="text-[9px] text-white/40 mt-0.5">LGD 3202001 (Kerala)</span>
-              </button>
+                  if (demoUser.role === 'BRANCH_MANAGER') {
+                    displayTitle = `${demoUser.name} (Manager)`;
+                    displaySubtitle = `LGD ${demoUser.branch_lgd_code}`;
+                  } else if (demoUser.role === 'COMPLIANCE_OFFICER') {
+                    displayTitle = 'Chief Compliance Officer';
+                    displaySubtitle = 'HO Bengaluru';
+                  } else if (demoUser.role === 'AUDITOR') {
+                    displayTitle = 'RBI Auditor';
+                    displaySubtitle = 'External Regulatory Inspection';
+                  } else if (demoUser.role === 'IT_ENGINEER') {
+                    displayTitle = `${demoUser.name} (IT Eng)`;
+                    displaySubtitle = 'IT Systems Administrator';
+                  }
 
-              <button
-                onClick={() => handleQuickLogin('ravi@canarabank.com')}
-                disabled={loading}
-                className="flex flex-col items-start p-2.5 rounded bg-white/30 hover:bg-white/10 border border-white/10 hover:border-white/20 text-left transition-all group shrink-0"
-              >
-                <span className="font-semibold text-white group-hover:text-primary-300">Ravi Kumar (Manager)</span>
-                <span className="text-[9px] text-white/40 mt-0.5">LGD 2902002 (Karnataka)</span>
-              </button>
-
-              <button
-                onClick={() => handleQuickLogin('inspector@rbi.org.in')}
-                disabled={loading}
-                className="flex flex-col items-start p-2.5 rounded bg-white/30 hover:bg-white/10 border border-white/10 hover:border-white/20 text-left transition-all group shrink-0"
-              >
-                <span className="font-semibold text-white group-hover:text-primary-300">RBI Auditor</span>
-                <span className="text-[9px] text-white/40 mt-0.5">External Inspection</span>
-              </button>
+                  return (
+                    <button
+                      key={demoUser.email}
+                      onClick={() => handleQuickLogin(demoUser.email)}
+                      disabled={loading}
+                      className={`flex flex-col items-start p-2.5 rounded bg-white/30 hover:bg-white/10 border border-white/10 hover:border-white/20 text-left transition-all group shrink-0 ${isLastOdd ? 'col-span-2 items-center' : ''}`}
+                    >
+                      <span className="font-semibold text-white group-hover:text-primary-300">{displayTitle}</span>
+                      <span className="text-[9px] text-white/40 mt-0.5">{displaySubtitle}</span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="col-span-2 text-center text-white/40 py-2">Loading demo users...</div>
+              )}
             </div>
           </div>
         </div>

@@ -48,3 +48,20 @@ async def login_form(
         
     token = create_access_token(subject=user["email"])
     return {"access_token": token, "token_type": "bearer"}
+
+@router.get("/demo-users")
+async def get_demo_users(db: AsyncIOMotorDatabase = Depends(get_db)):
+    """Fetch all users from the database for dynamic demo login page."""
+    users = await db.users.find({}).to_list(length=100)
+    
+    demo_users = []
+    for user in users:
+        demo_users.append({
+            "email": user["email"],
+            "name": user["name"],
+            "role": user["role"],
+            "branch_lgd_code": user.get("branch_lgd_code"),
+            "language": user.get("language", "en")
+        })
+        
+    return demo_users
