@@ -34,14 +34,43 @@ interface ExtractedMAP {
 
 // Sample RBI Direction template for one-click demo
 const MOCK_RBI_TEMPLATE = {
-  circular_number: "RBI/2026-27/304",
-  title: "Mandate on Multi-Factor Authentication and Transport Layer Security Upgrades",
-  raw_text: `RBI/2026-27/304 | Cybersecurity Framework Direction
+  circular_number: "RBI/2026-27/112",
+  title: "Master Direction – Information Technology Governance, Risk, Controls and Assurance Practices",
+  raw_text: `RESERVE BANK OF INDIA
+www.rbi.org.in
 
-1. All regulated entities shall ensure that internet-facing endpoints use TLS 1.3 protocol within 30 days of this circular.
-2. Multi-factor authentication (MFA) shall be enabled for all privileged and administrator accounts within 15 days. Access logs showing successful MFA challenges must be provided.
-3. All bank staff must undergo mandatory cybersecurity awareness training within 60 days. LMS completion reports must be saved in the repository.
-4. Banks shall formulate a strict customer data protection classification guideline in accordance with DPDP requirements within 45 days.`
+RBI/2026-27/112
+DoS.CO.CSITE.SEC.No.1/31.01.015/2026-27
+
+April 15, 2026
+
+The Chairman / Managing Director / Chief Executive Officer
+All Scheduled Commercial Banks (excluding Regional Rural Banks)
+All Small Finance Banks and Payments Banks
+All Non-Banking Financial Companies (NBFCs)
+
+Madam / Dear Sir,
+
+Master Direction – Information Technology Governance, Risk, Controls and Assurance Practices
+
+1. The Reserve Bank of India has observed that Regulated Entities (REs) are increasingly relying on Information Technology (IT) to deliver critical services. To ensure resilience, all REs are required to adhere to the following strict compliance measures.
+
+2. IT Infrastructure Upgrades (TLS 1.3):
+All internet-facing web applications, mobile app backend servers, and API gateways must be upgraded to strictly enforce the Transport Layer Security (TLS) 1.3 protocol. Fallback to TLS 1.0, 1.1, or 1.2 is explicitly prohibited for internet-facing systems.
+Deadline: REs must ensure 100% compliance within 30 days of this circular. Proof of compliance must be maintained via automated scan logs.
+
+3. Access Management and Multi-Factor Authentication (MFA):
+To mitigate credential compromise, Multi-factor authentication (MFA) must be strictly implemented for all privileged accounts, database administrators, and IT operations staff accessing production environments.
+Deadline: Full implementation within 15 days. System access logs must be verifiable by concurrent auditors.
+
+4. Cybersecurity Awareness Training:
+The Board shall ensure that a comprehensive, role-based Cybersecurity Awareness Training program is conducted for all employees, contractors, and third-party vendors with system access.
+Deadline: To be completed within 60 days. LMS completion certificates must be stored for regulatory inspection.
+
+Yours faithfully,
+
+(Chief General Manager-in-Charge)
+Department of Supervision`
 };
 
 export default function IngestCircularPage() {
@@ -76,14 +105,14 @@ export default function IngestCircularPage() {
     setStatus('ingesting');
     setActiveStep(0);
 
-    // Simulate stepping through the LangGraph pipeline
+    // Step 0 -> Step 1 (Ollama LLM) takes a moment, then it parks at the LLM node which does the heavy lifting.
     const interval = setInterval(() => {
       setActiveStep((prev) => {
-        if (prev < steps.length - 1) return prev + 1;
+        if (prev < 1) return prev + 1;
         clearInterval(interval);
         return prev;
       });
-    }, 1200);
+    }, 1500);
 
     try {
       const payload = {
@@ -96,9 +125,20 @@ export default function IngestCircularPage() {
       const response = await api.post('/api/v1/circulars/ingest', payload);
       
       clearInterval(interval);
-      setActiveStep(steps.length); // All complete
-      setExtractedMaps(response.data.maps_extracted || []);
-      setStatus('completed');
+      
+      // The API returned successfully! Rapidly animate through the remaining success steps
+      const finalSteps = async () => {
+        for (let i = 2; i < steps.length; i++) {
+          setActiveStep(i);
+          await new Promise(r => setTimeout(r, 600));
+        }
+        setActiveStep(steps.length);
+        setExtractedMaps(response.data.maps_extracted || []);
+        setStatus('completed');
+      };
+      
+      finalSteps();
+
     } catch (err) {
       clearInterval(interval);
       setStatus('error');

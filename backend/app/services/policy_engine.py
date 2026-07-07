@@ -37,9 +37,11 @@ def generate_rego_policy(map_id: str, kpi_key: str, operator: str, threshold: st
 
     rego = f"""package compliance.policy_{clean_id}
 
-default compliant = false
+import rego.v1
 
-compliant {{
+default compliant := false
+
+compliant if {{
     # Ensure key exists
     input.{kpi_key}
     
